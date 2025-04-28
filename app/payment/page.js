@@ -126,7 +126,7 @@ export default function PaymentPage() {
       </div>
 
       {/* ปุ่มยืนยัน */}
-      <button className="button" onClick={handleConfirm}>ยืนยันการชำระเงิน</button>
+      <button className="button" onClick={handleConfirm}>Confirm</button>
     </div>
   );
 }

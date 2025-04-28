@@ -37,10 +37,10 @@ export default function StoreDetailPage() {
       .then(data => {
         if (!data.error) {
           setMenuItems(data); // เก็บเมนู
-          const initQty = {}; 
+          const initQty = {}; // สร้าง object สำหรับเก็บจำนวนเมนู
           data.forEach(item => {
             initQty[item.item_id] = 0;
-          });
+          });// ตั้งค่าจำนวนเริ่มต้นเป็น 0
           setQuantities(initQty); // ตั้งค่าจำนวนทุกเมนูเริ่มต้นเป็น 0
         }
       })
@@ -67,7 +67,7 @@ export default function StoreDetailPage() {
 
   const totalPrice = menuItems.reduce((acc, item) => {
     // คำนวณราคารวมของเมนูที่เลือกทั้งหมด
-    const qty = quantities[item.item_id] || 0;
+    const qty = quantities[item.item_id] || 0; // ถ้าไม่มีจำนวนให้ใช้ 0
     return acc + (item.item_price * qty);
   }, 0);
 
@@ -80,11 +80,11 @@ export default function StoreDetailPage() {
     }
 
     const selectedItems = menuItems
-      .filter(it => (quantities[it.item_id] || 0) > 0)
+      .filter(it => (quantities[it.item_id] || 0) > 0)// กรองเฉพาะเมนูที่มีการเลือกจำนวน
       .map(it => ({
         ...it,
         quantity: quantities[it.item_id]
-      }));
+      }));// เก็บข้อมูลเมนูที่เลือกและจำนวน
 
     if (selectedItems.length === 0) {
       alert('กรุณาเลือกเมนูอาหารก่อน');
@@ -101,7 +101,7 @@ export default function StoreDetailPage() {
   return (
     <div className="container">
       {/* ชื่อร้าน */}
-      <h1>เมนูอาหารของร้าน {storeName ? storeName : `#${storeId}`}</h1>
+      <h1>เมนูอาหารของร้าน {storeName}</h1>
       <div className="flex">
         {/* วนแสดงเมนูอาหาร */}
         {menuItems.map(item => (

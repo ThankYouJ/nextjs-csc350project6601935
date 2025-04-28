@@ -17,6 +17,11 @@ export default function SignUpPage() {
   const [userType, setUserType] = useState('regular');
 
   const handleSignUp = async () => {
+    if (!fname || !lname || !username || !email || !password || !phone || !address) {
+      alert('กรุณากรอกข้อมูลให้ครบทุกช่อง');
+      return;
+    }
+
     try {
       // ส่งข้อมูลไปที่ API เพื่อสมัครสมาชิก
       const resUser = await fetch('/api/users', {

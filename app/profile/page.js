@@ -8,6 +8,10 @@ export default function ProfilePage() {
   useEffect(() => {
     // โหลด user จาก localStorage ตอนเปิดหน้า
     const stored = localStorage.getItem('user');
+    if (!stored) {
+      window.location.href = '/';
+      return;
+    }
     if (stored) {
       setUser(JSON.parse(stored)); // แปลง string เป็น object แล้วเก็บใน state
     }

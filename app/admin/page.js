@@ -32,8 +32,9 @@ export default function AdminPage() {
     }
     const u = JSON.parse(stored);
     if (u.role !== 'admin') {
-      alert('Not admin');
+      
       window.location.href = '/';
+      alert('Not admin');
       return;
     }
     setUser(u);
@@ -429,19 +430,17 @@ export default function AdminPage() {
               </div>
               </div>
 
-              {expandedOrders[order.order_id] && (
+              {expandedOrders[order.order_id] && orderItems[order.order_id] && (
                 <div style={{ marginTop: '1rem', background: '#f9f9f9', padding: '0.5rem', borderRadius: '6px' }}>
                   <b>Order Items</b>
-                  {orderItems[order.order_id] ? orderItems[order.order_id].map(item => (
+                  {orderItems[order.order_id].map(item => (
                     <div key={item.order_item_id} style={{ marginBottom: '0.5rem' }}>
                       <div>Menu: {item.item_name}</div>
                       <div>Quantity: {item.quantity}</div>
                       <div>Item price: {item.item_price} บาท</div>
                       <div>Subtotal: {item.quantity * item.item_price} บาท</div>
                     </div>
-                  )) : (
-                    <p>Loading...</p>
-                  )}
+                  ))}
                 </div>
               )}
             </div>

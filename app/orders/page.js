@@ -8,11 +8,15 @@ export default function OrdersPage() {
   const [user, setUser] = useState(null); // เก็บข้อมูล user
   const [orders, setOrders] = useState([]); // เก็บข้อมูลออเดอร์
   const [orderItems, setOrderItems] = useState({}); // เก็บข้อมูลเมนูแต่ละ order
+  const [expandedOrders, setExpandedOrders] = useState({});
 
   useEffect(() => {
     // โหลดข้อมูล user และออเดอร์ของ user
     const stored = localStorage.getItem('user');
-    if (!stored) return;
+    if (!stored) {
+      window.location.href = '/';
+      return;
+    }
     const u = JSON.parse(stored);
     setUser(u);
 
@@ -24,22 +28,24 @@ export default function OrdersPage() {
   }, []);
 
   const handleExpand = async (order_id) => {
-    // ขยายหรือซ่อนรายละเอียดเมนูของ order
-    if (orderItems[order_id]) {
-      const copy = { ...orderItems };
-      delete copy[order_id];
-      setOrderItems(copy);
+    if (expandedOrders[order_id]) {
+      // ถ้าเปิดอยู่แล้ว ก็กดปิด (แค่แก้ expandedOrders)
+      setExpandedOrders(prev => ({ ...prev, [order_id]: false }));
       return;
     }
-    try {
-      const res = await fetch(`/api/order_items?order_id=${order_id}`);
-      const data = await res.json();
-      if (!data.error) {
-        setOrderItems(prev => ({ ...prev, [order_id]: data }));
+    if (!orderItems[order_id]) {
+      // ถ้าไม่เคยโหลดเมนูมาก่อน ➔ fetch
+      try {
+        const res = await fetch(`/api/order_items?order_id=${order_id}`);
+        const data = await res.json();
+        if (!data.error) {
+          setOrderItems(prev => ({ ...prev, [order_id]: data }));
+        }
+      } catch (err) {
+        console.error(err);
       }
-    } catch (err) {
-      console.error(err);
     }
+    setExpandedOrders(prev => ({ ...prev, [order_id]: true }));
   };
 
   const handleCancelOrder = async (order_id) => {
@@ -83,7 +89,7 @@ export default function OrdersPage() {
         {/* แสดงออเดอร์ทั้งหมดของ user */}
         {orders.map(order => {
           const items = orderItems[order.order_id] || [];
-          const isOpen = orderItems.hasOwnProperty(order.order_id);
+          const isOpen = expandedOrders[order.order_id];
           const subSum = calcSubtotal(items);
 
           return (
