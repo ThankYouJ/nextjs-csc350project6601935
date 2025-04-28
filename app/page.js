@@ -1,95 +1,51 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+'use client'; // ประกาศว่าเป็น Client-side component
 
-export default function Home() {
+import { useEffect, useState } from 'react'; // ดึง useEffect และ useState มาใช้
+import Link from 'next/link'; // ดึง Link ของ Next.js มาใช้ลิงก์เปลี่ยนหน้า
+
+export default function HomePage() {
+  const [stores, setStores] = useState([]); // สร้าง state สำหรับเก็บข้อมูลร้านค้า
+  const [user, setUser] = useState(null); // สร้าง state สำหรับเก็บข้อมูลผู้ใช้งาน
+
+  useEffect(() => {
+    // โหลดข้อมูล user จาก localStorage ตอนเปิดหน้า
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser)); // ถ้ามี user ใน localStorage ให้นำมาเก็บใน state
+    }
+
+    // โหลดข้อมูลร้านค้าจาก API
+    fetch('/api/stores')
+      .then(res => res.json())
+      .then(data => {
+        if (!data.error) {
+          setStores(data); // ถ้าโหลดสำเร็จ นำข้อมูลร้านมาเก็บใน state
+        }
+      });
+  }, []); // ทำงานครั้งเดียวเมื่อโหลดหน้า
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>app/page.js</code>.
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+    <div className="container">
+      <h1>Home - เลือกร้านอาหาร</h1>
+      <div className="flex">
+        {/* แสดงรายการร้านค้าทั้งหมด */}
+        {stores.map(store => (
+          <Link key={store.store_id} href={`/store/${store.store_id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div className="card" style={{ width: '280px', cursor: 'pointer' }}>
+              {/* แสดงรูปร้านถ้ามี */}
+              {store.store_image && (
+                <img src={store.store_image} alt={store.store_name} />
+              )}
+              {/* แสดงชื่อร้าน */}
+              <h3>{store.store_name}</h3>
+              {/* แสดงที่ตั้งร้าน */}
+              <p>{store.location}</p>
+              {/* แสดงเบอร์โทรร้าน */}
+              <p>Tel: {store.store_phone}</p>
+            </div>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

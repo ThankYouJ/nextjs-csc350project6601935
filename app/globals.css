@@ -1,42 +1,121 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* กำหนดพื้นฐานทั้งเว็บ */
+html, body {
+  margin: 0; /* ไม่มี margin */
+  padding: 0; /* ไม่มี padding */
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* ฟอนต์หลัก */
+  background-color: #f9f9f9; /* สีพื้นหลัง */
+  color: #333; /* สีตัวหนังสือ */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* คุมความกว้าง layout กลางจอ */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
 }
 
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
+/* การ์ดพื้นหลังขาว ขอบมน + เงาเบา */
+.card {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s ease;
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* เงาเข้มขึ้นเมื่อ hover การ์ด */
+.card:hover {
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
+/* จัดการขนาดรูปภาพในการ์ด */
+.card img {
+  width: 100%;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+/* ปุ่มสีฟ้าปกติ */
+.button {
+  background-color: #0070f3;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-top: 8px;
+  transition: background-color 0.2s ease;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+/* ปุ่มเมื่อ hover */
+.button:hover {
+  background-color: #005bb5;
+}
+
+/* ปุ่มอันตราย สีแดง */
+.button-danger {
+  background-color: #ff4d4f;
+}
+.button-danger:hover {
+  background-color: #d9363e;
+}
+
+/* input, select, textarea ทั่วไป */
+input, textarea, select {
+  width: 100%;
+  padding: 8px;
+  margin-top: 4px;
+  margin-bottom: 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+/* หัวข้อ h1-h3 margin ล่าง */
+h1, h2, h3 {
+  margin-bottom: 0.5rem;
+}
+
+/* flex สำหรับจัดเรียงแนวนอน */
+.flex {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+/* flex-col สำหรับแนวตั้ง */
+.flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+/* center ทุกอย่างตรงกลาง */
+.center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* พื้นหลัง modal */
+.modal-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* เนื้อหาภายใน modal */
+.modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  width: 400px;
+  max-width: 90%;
 }
