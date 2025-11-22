@@ -1,49 +1,80 @@
-'use client'; // บอก Next.js ว่านี่คือ Client Component
+'use client';
 
-import { useEffect, useState } from 'react'; // ใช้ useState, useEffect จาก React
+import { useEffect, useState } from 'react';
 
 export default function ProfilePage() {
-  const [user, setUser] = useState(null); // เก็บข้อมูล user ที่ login
+  const [user, setUser] = useState(null);
+
+  //  Popup Redeem states
+  const [openRedeem, setOpenRedeem] = useState(false);
+  const [billCode, setBillCode] = useState("");
+  const [redeemResult, setRedeemResult] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // โหลด user จาก localStorage ตอนเปิดหน้า
     const stored = localStorage.getItem('user');
     if (!stored) {
       window.location.href = '/';
       return;
     }
-    if (stored) {
-      setUser(JSON.parse(stored)); // แปลง string เป็น object แล้วเก็บใน state
-    }
-  }, []); // ทำงานครั้งเดียวตอนโหลดหน้า
+    setUser(JSON.parse(stored));
+  }, []);
 
   const handleSignOut = () => {
-    // ฟังก์ชันออกจากระบบ
-    localStorage.removeItem('user'); // ลบ user ออกจาก localStorage
-    window.location.href = '/'; // กลับไปหน้าแรก
+    localStorage.removeItem('user');
+    window.location.href = '/';
   };
 
   const handleDeleteMyself = async () => {
-    // ฟังก์ชันลบบัญชีตัวเอง
-    if (!user) return; // ถ้าไม่มี user ไม่ต้องทำอะไร
-    if (!confirm('ต้องการลบบัญชีตัวเองหรือไม่?')) return; // ถามยืนยันก่อนลบ
+    if (!user) return;
+    if (!confirm('ต้องการลบบัญชีตัวเองหรือไม่?')) return;
+
     try {
-      const res = await fetch(`/api/users?user_id=${user.user_id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/users?user_id=${user.user_id}`, {
+        method: 'DELETE'
+      });
       const data = await res.json();
+
       if (!data.error) {
-        alert('ลบบัญชีสำเร็จ'); // แจ้งเตือนว่าลบสำเร็จ
-        localStorage.removeItem('user'); // ลบข้อมูล user
-        window.location.href = '/'; // กลับไปหน้าแรก
+        alert('ลบบัญชีสำเร็จ');
+        localStorage.removeItem('user');
+        window.location.href = '/';
       } else {
-        alert(data.error); // แจ้งเตือนถ้าเกิด error
+        alert(data.error);
       }
     } catch (err) {
-      console.error(err); // แสดง error ใน console
+      console.error(err);
+    }
+  };
+
+  //  Redeem API
+  const handleRedeem = async () => {
+    if (!billCode.trim()) {
+      alert("กรุณากรอก Bill Code");
+      return;
+    }
+
+    setLoading(true);
+    setRedeemResult(null);
+
+    try {
+      const res = await fetch("/api/redeem-bill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bill_code: billCode })
+      });
+
+      const data = await res.json();
+      setRedeemResult(data);
+    } catch (err) {
+      console.error(err);
+      setRedeemResult({ success: false, reason: "SERVER_ERROR" });
+    } finally {
+      setLoading(false);
     }
   };
 
   if (!user) {
-    // ถ้า user ยังไม่ login
     return (
       <div className="container">
         <h1>Profile</h1>
@@ -56,7 +87,6 @@ export default function ProfilePage() {
     <div className="container">
       <h1 style={{ textAlign: 'center' }}>My Profile</h1>
 
-      {/* แสดงข้อมูล user */}
       <div className="card" style={{ maxWidth: '400px', margin: '0 auto' }}>
         <p><b>ID:</b> {user.user_id}</p>
         <p><b>Username:</b> {user.username}</p>
@@ -68,14 +98,122 @@ export default function ProfilePage() {
         <p><b>Type:</b> {user.user_type}</p>
         <p><b>Role:</b> {user.role}</p>
 
-        {/* ปุ่ม Sign-out และ Delete Account */}
-        <div style={{ marginTop: '1rem' }}>
+        {/* ปุ่มต่างๆ */}
+        <div style={{ marginTop: '1rem', display: 'flex', gap: '8px' }}>
+          
           <button className="button" onClick={handleSignOut}>Sign-out</button>
-          <button className="button button-danger" style={{ marginLeft: '8px' }} onClick={handleDeleteMyself}>
+
+          {/*ปุ่ม Redeem */}
+          <button
+            className="button"
+            style={{ backgroundColor: '#d9534f', color: '#fff' }}
+            onClick={() => { 
+              setRedeemResult(null);
+              setBillCode("");
+              setOpenRedeem(true); 
+            }}
+          >
+            Redeem
+          </button>
+
+          <button
+            className="button button-danger"
+            onClick={handleDeleteMyself}
+          >
             Delete Account
           </button>
+
         </div>
       </div>
+
+      {/*POPUP REDEEM BILL*/}
+      {openRedeem && (
+        <div style={{
+          position: "fixed",
+          top: 0, left: 0,
+          width: "100%", height: "100%",
+          background: "rgba(0,0,0,0.5)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: "#fff",
+            padding: "2rem",
+            borderRadius: "10px",
+            width: "350px",
+            textAlign: "center",
+            boxShadow: "0 2px 10px rgba(0,0,0,0.3)"
+          }}>
+            <h2 style={{ marginBottom: "1rem" }}>Redeem Bill</h2>
+
+            <input
+              placeholder="Enter bill code"
+              value={billCode}
+              onChange={(e) => setBillCode(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px",
+                borderRadius: "6px",
+                border: "1px solid #ccc",
+                fontSize: "16px"
+              }}
+            />
+
+            <br /><br />
+
+            {/* Submit */}
+            <button
+              onClick={handleRedeem}
+              style={{
+                backgroundColor: "#5cb85c",
+                color: "#fff",
+                padding: "0.5rem 1.2rem",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "16px",
+                marginRight: "8px"
+              }}
+              disabled={loading}
+            >
+              {loading ? "Checking..." : "Redeem"}
+            </button>
+
+            {/* Close */}
+            <button
+              onClick={() => setOpenRedeem(false)}
+              style={{
+                backgroundColor: "#777",
+                color: "#fff",
+                padding: "0.5rem 1.2rem",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "16px"
+              }}
+            >
+              Close
+            </button>
+
+            {/* แสดงผลลัพธ์ */}
+            {redeemResult && (
+              <p style={{
+                marginTop: "1rem",
+                fontWeight: "bold",
+                color: redeemResult.success ? "green" : "red"
+              }}>
+                {redeemResult.success
+                  ? "✔ Redeem Success"
+                  : `Failed: ${redeemResult.reason}`}
+              </p>
+            )}
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
