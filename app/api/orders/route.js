@@ -5,8 +5,18 @@ const db = mysqlPool.promise();
 
 /*
 orders:
-  order_id, order_time, status, delivery_fee, discount, total_price, user_id
+  order_id, order_time, status, delivery_fee, discount, total_price, user_id, bill_code
 */
+
+// ฟังก์ชันสุ่มเลข+ตัวอักษร 16 หลัก (Alphanumeric)
+function generateBillCode() {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let code = '';
+  for (let i = 0; i < 16; i++) {
+    code += characters.charAt(Math.floor(Math.random() * characters.length));
+  }
+  return code;
+}
 
 export async function GET(request) {
   try {
@@ -23,13 +33,13 @@ export async function GET(request) {
     const [rows] = await db.query(sql, params);
     return NextResponse.json(rows, { status: 200 });
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch orders: ' + error }, { status: 500 });
+    console.error("GET Order Error:", error);
+    return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 });
   }
 }
 
 export async function POST(request) {
   try {
-    // { user_id, delivery_fee, discount, total_price, status, order_items: [...]}
     const body = await request.json();
     const {
       user_id,
@@ -40,27 +50,60 @@ export async function POST(request) {
       order_items = []
     } = body;
 
-    const [resOrder] = await db.query(
-      `INSERT INTO orders
-       (user_id, delivery_fee, discount, total_price, status, order_time)
-       VALUES (?,?,?,?,?,NOW())`,
-      [user_id, delivery_fee, discount, total_price, status]
-    );
-    const newOrderId = resOrder.insertId;
+    // 1. สร้าง bill_code และตรวจสอบความซ้ำ
+    let billCode = '';
+    let isUnique = false;
+    let maxRetries = 10; 
 
-    // Insert order_items
-    for (const it of order_items) {
-      await db.query(
-        `INSERT INTO order_items
-         (order_id, item_id, quantity, item_price)
-         VALUES (?,?,?,?)`,
-        [newOrderId, it.item_id, it.quantity, it.item_price]
-      );
+    while (!isUnique && maxRetries > 0) {
+      billCode = generateBillCode();
+      
+      try {
+        // เช็คในฐานข้อมูลว่ามี bill_code นี้หรือยัง
+        const [existing] = await db.query('SELECT order_id FROM orders WHERE bill_code = ?', [billCode]);
+        if (existing.length === 0) {
+          isUnique = true;
+        }
+      } catch (err) {
+        console.error("Check BillCode Error:", err.message);
+        // ถ้า Error เพราะไม่มีคอลัมน์ bill_code หรือผิด Type ให้แจ้งเตือนชัดเจน
+        throw new Error("Database error: Please check if 'bill_code' column exists and is VARCHAR type.");
+      }
+      maxRetries--;
     }
 
-    return NextResponse.json({ message: 'Order created', order_id: newOrderId }, { status: 201 });
+    if (!isUnique) {
+      throw new Error("Failed to generate unique bill code");
+    }
+
+    // 2. Insert ลงตาราง orders
+    const [resOrder] = await db.query(
+      `INSERT INTO orders
+       (user_id, delivery_fee, discount, total_price, status, order_time, bill_code)
+       VALUES (?,?,?,?,?,NOW(),?)`,
+      [user_id, delivery_fee, discount, total_price, status, billCode]
+    );
+    
+    const newOrderId = resOrder.insertId;
+
+    // 3. Insert ลงตาราง order_items
+    if (order_items.length > 0) {
+        const itemValues = order_items.map(it => [newOrderId, it.item_id, it.quantity, it.item_price]);
+        await db.query(
+            `INSERT INTO order_items (order_id, item_id, quantity, item_price) VALUES ?`,
+            [itemValues]
+        );
+    }
+
+    return NextResponse.json({ 
+        message: 'Order created', 
+        order_id: newOrderId, 
+        bill_code: billCode 
+    }, { status: 201 });
+
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to create order: ' + error }, { status: 500 });
+    console.error("Create Order Error:", error);
+    return NextResponse.json({ error: 'Failed to create order: ' + error.message }, { status: 500 });
   }
 }
 
@@ -90,7 +133,6 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'order_id is required' }, { status: 400 });
     }
 
-    // ลบ order_items ก่อน
     await db.query('DELETE FROM order_items WHERE order_id=?', [order_id]);
     await db.query('DELETE FROM orders WHERE order_id=?', [order_id]);
 

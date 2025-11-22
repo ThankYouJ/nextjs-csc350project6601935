@@ -8,9 +8,22 @@ const db = mysqlPool.promise();
   store_id, store_name, store_phone, location, store_image
 */
 
-export async function GET() {
+export async function GET(request) {
   try {
-    const [rows] = await db.query('SELECT * FROM stores');
+    // เพิ่มส่วนรับค่า store_id จาก URL
+    const { searchParams } = new URL(request.url);
+    const store_id = searchParams.get('store_id');
+
+    let sql = 'SELECT * FROM stores';
+    const params = [];
+
+    // ถ้ามี store_id ส่งมา ให้เพิ่มเงื่อนไข WHERE
+    if (store_id) {
+      sql += ' WHERE store_id = ?';
+      params.push(store_id);
+    }
+
+    const [rows] = await db.query(sql, params);
     return NextResponse.json(rows, { status: 200 });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch stores: ' + error }, { status: 500 });

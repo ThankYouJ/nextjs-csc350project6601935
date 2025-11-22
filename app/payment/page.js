@@ -14,6 +14,10 @@ export default function PaymentPage() {
   const [finalDiscount, setFinalDiscount] = useState(0);
   const [finalTotal, setFinalTotal] = useState(0);
 
+  // เพิ่ม state สำหรับจัดการ Modal และ Bill Code
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdBillCode, setCreatedBillCode] = useState('');
+
   useEffect(() => {
     // โหลดข้อมูล user และ selectedItems จาก localStorage
     const userData = localStorage.getItem('user');
@@ -79,14 +83,29 @@ export default function PaymentPage() {
       if (data.error) {
         alert(data.error);
       } else {
-        alert('ชำระเงินเรียบร้อย');
-        localStorage.removeItem('selectedItems'); // ล้างข้อมูลที่เลือก
-        router.push('/'); // กลับหน้าแรก
+        // สำเร็จ: เก็บ Bill Code และแสดง Modal
+        setCreatedBillCode(data.bill_code);
+        setShowSuccessModal(true);
+        
+        // ล้างตะกร้าแต่ยังไม่ redirect ทันที รอให้ user กดปิด Modal เอง
+        localStorage.removeItem('selectedItems'); 
       }
     } catch (err) {
       console.error(err);
       alert('เกิดข้อผิดพลาด');
     }
+  };
+
+  const handleCopyBillCode = () => {
+    // ฟังก์ชันก็อปปี้ Bill Code
+    navigator.clipboard.writeText(createdBillCode);
+    alert('คัดลอก Bill Code เรียบร้อย: ' + createdBillCode);
+  };
+
+  const handleCloseModal = () => {
+    // เมื่อปิด Modal ให้กลับหน้าแรก
+    setShowSuccessModal(false);
+    router.push('/'); 
   };
 
   if (!user) return null; // ถ้าไม่มี user ยังไม่โหลด
@@ -127,6 +146,38 @@ export default function PaymentPage() {
 
       {/* ปุ่มยืนยัน */}
       <button className="button" onClick={handleConfirm}>Confirm</button>
+
+      {/* Modal แสดงผลเมื่อชำระเงินสำเร็จ */}
+      {showSuccessModal && (
+        <div className="modal-background" style={{zIndex: 2000}}>
+          <div className="modal-content" style={{ textAlign: 'center', maxWidth: '500px' }}>
+            <h2 style={{ color: '#28a745', marginBottom: '1rem' }}>ชำระเงินเรียบร้อย!</h2>
+            <p>ขอบคุณสำหรับการสั่งซื้อ</p>
+            
+            <div style={{ 
+              background: '#f3f4f6', 
+              padding: '1.5rem', 
+              borderRadius: '8px', 
+              margin: '1.5rem 0',
+              border: '1px dashed #ccc' 
+            }}>
+              <p style={{ marginBottom: '0.5rem', fontWeight: 'bold', color: '#666' }}>Bill Code ของคุณ:</p>
+              <h1 style={{ margin: 0, fontSize: '2rem', wordBreak: 'break-all', color: '#333' }}>
+                {createdBillCode}
+              </h1>
+            </div>
+
+            <div className="flex center" style={{ gap: '1rem' }}>
+              <button className="button" onClick={handleCopyBillCode}>
+                Copy Bill Code
+              </button>
+              <button className="button button-danger" onClick={handleCloseModal}>
+                กลับหน้าแรก
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
