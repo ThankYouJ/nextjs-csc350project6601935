@@ -78,6 +78,13 @@ export default function RootLayout({ children }) {
                   >
                     Orders
                   </Link>
+                  
+                  <Link
+                    href="/instruction"
+                    style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}
+                  >
+                    Add Token
+                  </Link>
 
                   {user.role === 'admin' && (
                     <Link

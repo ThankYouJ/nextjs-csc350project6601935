@@ -77,9 +77,9 @@ export default function WalletInstruction() {
             });
 
             if (wasAdded) {
-                alert('เพิ่มโทเคนของคุณบนเครือข่าย Sepolia สำเร็จ ✅');
+                alert('เพิ่มโทเคนของคุณบนเครือข่าย Sepolia สำเร็จ');
             } else {
-                alert('ผู้ใช้ยกเลิกการเพิ่มโทเคน ❌');
+                alert('ผู้ใช้ยกเลิกการเพิ่มโทเคน');
             }
         } catch (error) {
             console.error(error);
@@ -132,7 +132,7 @@ export default function WalletInstruction() {
                 />
 
                 <p style={{ fontSize: '0.95rem', color: '#555', marginTop: '1rem' }}>
-                    เมื่อเพิ่มโทเคนสำเร็จ คุณจะเห็น RSUToken ในรายการโทเคนของคุณบนเครือข่าย Sepolia
+                    เมื่อเพิ่มโทเคนสำเร็จ คุณจะเห็น RSUToken ในรายการโทเคนของคุณบนเครือข่าย Sepolia(testnet)
                 </p>
             </div>
 
