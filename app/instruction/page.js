@@ -96,7 +96,7 @@ export default function WalletInstruction() {
             </h1>
 
             <ol style={{ fontSize: '1.1rem', lineHeight: '1.7', marginBottom: '2rem' }}>
-                <li>ติดตั้งส่วนขยาย MetaMask บนเบราว์เซอร์ (Chrome, Firefox ฯลฯ)</li>
+                <li>ติดตั้งส่วนขยาย <a href="https://chromewebstore.google.com/detail/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn?hl=en" target='_blank'>MetaMask</a> บนเบราว์เซอร์ (Chrome, Firefox ฯลฯ)</li>
                 <li>สร้างกระเป๋าเงินใหม่ หรือเข้าสู่ระบบด้วยกระเป๋าเงินที่มีอยู่แล้ว</li>
                 <li>เข้าไปที่ <b>Settings &gt; Advanced &gt; Show test networks </b>เลือกเป็น <b>ON</b> </li>
                 <li>จากนั้นคลิกปุ่มด้านล่างเพื่อให้ระบบเพิ่มโทเคน RSUToken เข้าไปใน MetaMask โดยอัตโนมัติ</li>
