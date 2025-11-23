@@ -47,7 +47,7 @@ export default function RootLayout({ children }) {
                   fontWeight: 'bold',
                 }}
               >
-                My Restaurant
+                RSU Reward
               </h2>
             </Link>
 

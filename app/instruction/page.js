@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 
 const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL;
+import { CONTRACT_ADDRESS } from '../../utils/contractConfig';
 
 const TOKEN_CONFIG = {
-    address: '0xC4B281E8C5A9833e2f5C7AA638E54B1af6AC27f5',
+    address: CONTRACT_ADDRESS,
     symbol: 'RTK',
     decimals: 18,
     image: 'https://library.rsu.ac.th/img/rsu_p.png',
