@@ -38,7 +38,7 @@ export async function POST(req) {
     if (!rpcUrl) throw new Error("ไม่พบ SEPOLIA_RPC_URL ในไฟล์ .env");
 
     const provider = new ethers.JsonRpcProvider(rpcUrl);
-    const merchantWallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
+    const merchantWallet = new ethers.Wallet(process.env.MERCHANT_PRIVATE_KEY, provider);
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, merchantWallet);
 
     // 3. คำนวณรางวัล (Total Price / 10)
