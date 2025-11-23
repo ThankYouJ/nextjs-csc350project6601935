@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { WalletProvider } from './WalletProvider';
 import ConnectWalletButton from './components/ConnectWalletButton';
-// ^ make sure WalletProvider.jsx is in the same folder as layout.js
 
 export default function RootLayout({ children }) {
   const [user, setUser] = useState(null);
@@ -53,8 +52,6 @@ export default function RootLayout({ children }) {
             </Link>
 
             <nav style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-              {/* put your ConnectWalletButton here if you want it in the header */}
-              {/* <ConnectWalletButton /> */}
 
               {!user && (
                 <>
@@ -80,6 +77,13 @@ export default function RootLayout({ children }) {
                     style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}
                   >
                     Orders
+                  </Link>
+                  
+                  <Link
+                    href="/instruction"
+                    style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}
+                  >
+                    Add Token
                   </Link>
 
                   {user.role === 'admin' && (
