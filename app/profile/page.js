@@ -1,24 +1,57 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ethers } from 'ethers';
 
 export default function ProfilePage() {
+  // State สำหรับข้อมูล User
   const [user, setUser] = useState(null);
 
-  //  Popup Redeem states
+  // State สำหรับ Modal และระบบ Redeem
   const [openRedeem, setOpenRedeem] = useState(false);
-  const [billCode, setBillCode] = useState("");
-  const [redeemResult, setRedeemResult] = useState(null);
+  const [billCode, setBillCode] = useState('');
+  const [walletAddress, setWalletAddress] = useState('');
+  const [redeemResult, setRedeemResult] = useState(null); // เก็บผลลัพธ์เพื่อแสดง Success/Fail
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // 1. โหลดข้อมูล User
     const stored = localStorage.getItem('user');
     if (!stored) {
       window.location.href = '/';
       return;
     }
     setUser(JSON.parse(stored));
+
+    // 2. เช็ค Wallet
+    checkWallet();
   }, []);
+
+  const checkWallet = async () => {
+    if (window.ethereum) {
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const accounts = await provider.listAccounts();
+        if (accounts.length > 0) {
+          setWalletAddress(accounts[0].address);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
+  const handleConnectWallet = async () => {
+    if (!window.ethereum) return alert('กรุณาติดตั้ง MetaMask');
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+      const signer = await provider.getSigner();
+      setWalletAddress(signer.address);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleSignOut = () => {
     localStorage.removeItem('user');
@@ -28,13 +61,9 @@ export default function ProfilePage() {
   const handleDeleteMyself = async () => {
     if (!user) return;
     if (!confirm('ต้องการลบบัญชีตัวเองหรือไม่?')) return;
-
     try {
-      const res = await fetch(`/api/users?user_id=${user.user_id}`, {
-        method: 'DELETE'
-      });
+      const res = await fetch(`/api/users?user_id=${user.user_id}`, { method: 'DELETE' });
       const data = await res.json();
-
       if (!data.error) {
         alert('ลบบัญชีสำเร็จ');
         localStorage.removeItem('user');
@@ -47,41 +76,58 @@ export default function ProfilePage() {
     }
   };
 
-  //  Redeem API
-  const handleRedeem = async () => {
-    if (!billCode.trim()) {
-      alert("กรุณากรอก Bill Code");
-      return;
-    }
+  // ฟังก์ชันกด Redeem ใน Modal
+  const handleRedeemSubmit = async () => {
+    if (!billCode) return alert('กรุณากรอก Bill Code');
+    if (!walletAddress) return alert('กรุณาเชื่อมต่อกระเป๋า Wallet ก่อน');
 
     setLoading(true);
-    setRedeemResult(null);
+    setRedeemResult(null); // ล้างค่าเก่าก่อนเริ่มใหม่
 
     try {
-      const res = await fetch("/api/redeem-bill", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bill_code: billCode })
+      // เรียก API ตัวใหม่ (โอนเหรียญ + ตัดบิล)
+      const res = await fetch('/api/redeem-bill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bill_code: billCode,
+          wallet_address: walletAddress
+        })
       });
 
       const data = await res.json();
-      setRedeemResult(data);
+
+      // เก็บผลลัพธ์ไว้แสดงใน Modal
+      if (data.success) {
+        setRedeemResult({ 
+            success: true, 
+            message: data.message, 
+            txHash: data.txHash 
+        });
+        setBillCode(''); // ล้างช่องหลังสำเร็จ
+      } else {
+        setRedeemResult({ 
+            success: false, 
+            message: data.message 
+        });
+      }
+
     } catch (err) {
       console.error(err);
-      setRedeemResult({ success: false, reason: "SERVER_ERROR" });
+      setRedeemResult({ success: false, message: 'เกิดข้อผิดพลาดในการเชื่อมต่อ Server' });
     } finally {
       setLoading(false);
     }
   };
 
-  if (!user) {
-    return (
-      <div className="container">
-        <h1>Profile</h1>
-        <p>กรุณา Sign-in ก่อน</p>
-      </div>
-    );
-  }
+  // ฟังก์ชันปิด Modal
+  const handleCloseModal = () => {
+    setOpenRedeem(false);
+    setRedeemResult(null); // ล้างผลลัพธ์เมื่อปิด
+    setBillCode('');
+  };
+
+  if (!user) return null;
 
   return (
     <div className="container">
@@ -98,24 +144,21 @@ export default function ProfilePage() {
         <p><b>Type:</b> {user.user_type}</p>
         <p><b>Role:</b> {user.role}</p>
 
-        {/* ปุ่มต่างๆ */}
-        <div style={{ marginTop: '1rem', display: 'flex', gap: '8px' }}>
+        <div style={{ marginTop: '1rem', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           
+          {/* ปุ่ม Sign-out */}
           <button className="button" onClick={handleSignOut}>Sign-out</button>
 
-          {/*ปุ่ม Redeem */}
+          {/* ปุ่มเปิด Modal Redeem */}
           <button
             className="button"
-            style={{ backgroundColor: '#d9534f', color: '#fff' }}
-            onClick={() => { 
-              setRedeemResult(null);
-              setBillCode("");
-              setOpenRedeem(true); 
-            }}
+            style={{ backgroundColor: '#28a745', color: '#fff' }} // สีเขียว
+            onClick={() => setOpenRedeem(true)}
           >
-            Redeem
+            Redeem Reward
           </button>
 
+          {/* ปุ่มลบบัญชี */}
           <button
             className="button button-danger"
             onClick={handleDeleteMyself}
@@ -126,7 +169,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/*POPUP REDEEM BILL*/}
+      {/* --- POPUP REDEEM BILL (MODAL) --- */}
       {openRedeem && (
         <div style={{
           position: "fixed",
@@ -142,14 +185,32 @@ export default function ProfilePage() {
             background: "#fff",
             padding: "2rem",
             borderRadius: "10px",
-            width: "350px",
+            width: "90%",
+            maxWidth: "400px",
             textAlign: "center",
-            boxShadow: "0 2px 10px rgba(0,0,0,0.3)"
+            boxShadow: "0 4px 15px rgba(0,0,0,0.2)"
           }}>
-            <h2 style={{ marginBottom: "1rem" }}>Redeem Bill</h2>
+            <h2 style={{ marginBottom: "1rem" }}>Redeem Bill Reward</h2>
 
+            {/* 1. ส่วนเชื่อมต่อ Wallet */}
+            <div style={{ marginBottom: '15px' }}>
+                {walletAddress ? (
+                    <div style={{ fontSize: '0.85rem', color: 'green', background: '#e8f5e9', padding: '5px', borderRadius: '4px' }}>
+                        Connected: {walletAddress.substring(0, 6)}...{walletAddress.substring(38)}
+                    </div>
+                ) : (
+                    <button 
+                        onClick={handleConnectWallet}
+                        style={{ padding: '5px 10px', cursor: 'pointer', border: '1px solid #ccc', borderRadius: '4px', background: '#f8f9fa' }}
+                    >
+                        🦊 Connect Wallet First
+                    </button>
+                )}
+            </div>
+
+            {/* 2. ช่องกรอก Bill Code */}
             <input
-              placeholder="Enter bill code"
+              placeholder="Enter Bill Code (16 digits)"
               value={billCode}
               onChange={(e) => setBillCode(e.target.value)}
               style={{
@@ -157,57 +218,68 @@ export default function ProfilePage() {
                 padding: "10px",
                 borderRadius: "6px",
                 border: "1px solid #ccc",
-                fontSize: "16px"
+                fontSize: "16px",
+                marginBottom: "15px"
               }}
             />
 
-            <br /><br />
+            {/* 3. ปุ่มกด Redeem */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+                <button
+                  onClick={handleRedeemSubmit}
+                  disabled={loading}
+                  style={{
+                    backgroundColor: loading ? "#ccc" : "#0070f3", // สีฟ้า
+                    color: "#fff",
+                    padding: "0.6rem 1.5rem",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: loading ? "not-allowed" : "pointer",
+                    fontSize: "16px",
+                    minWidth: "100px"
+                  }}
+                >
+                  {loading ? "Checking..." : "Redeem"}
+                </button>
 
-            {/* Submit */}
-            <button
-              onClick={handleRedeem}
-              style={{
-                backgroundColor: "#5cb85c",
-                color: "#fff",
-                padding: "0.5rem 1.2rem",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontSize: "16px",
-                marginRight: "8px"
-              }}
-              disabled={loading}
-            >
-              {loading ? "Checking..." : "Redeem"}
-            </button>
+                <button
+                  onClick={handleCloseModal}
+                  style={{
+                    backgroundColor: "#6c757d", // สีเทา
+                    color: "#fff",
+                    padding: "0.6rem 1.5rem",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "16px"
+                  }}
+                >
+                  Close
+                </button>
+            </div>
 
-            {/* Close */}
-            <button
-              onClick={() => setOpenRedeem(false)}
-              style={{
-                backgroundColor: "#777",
-                color: "#fff",
-                padding: "0.5rem 1.2rem",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontSize: "16px"
-              }}
-            >
-              Close
-            </button>
-
-            {/* แสดงผลลัพธ์ */}
+            {/* 4. ส่วนแสดงผลลัพธ์ (Success/Fail) */}
             {redeemResult && (
-              <p style={{
-                marginTop: "1rem",
-                fontWeight: "bold",
-                color: redeemResult.success ? "green" : "red"
-              }}>
-                {redeemResult.success
-                  ? "✔ Redeem Success"
-                  : `Failed: ${redeemResult.reason}`}
-              </p>
+              <div style={{ marginTop: "1.5rem", textAlign: "left", background: "#f8f9fa", padding: "10px", borderRadius: "6px", fontSize: "0.9rem" }}>
+                {redeemResult.success ? (
+                    <div style={{ color: "green" }}>
+                        <strong>✔ สำเร็จ!</strong><br/>
+                        {redeemResult.message}<br/>
+                        <a 
+                            href={`https://sepolia.etherscan.io/tx/${redeemResult.txHash}`} 
+                            target="_blank" 
+                            rel="noreferrer"
+                            style={{ color: '#0070f3', textDecoration: 'underline' }}
+                        >
+                            ดู Transaction
+                        </a>
+                    </div>
+                ) : (
+                    <div style={{ color: "red" }}>
+                        <strong>❌ ผิดพลาด:</strong> {redeemResult.message}
+                    </div>
+                )}
+              </div>
             )}
 
           </div>
