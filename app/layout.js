@@ -47,7 +47,7 @@ export default function RootLayout({ children }) {
                   fontWeight: 'bold',
                 }}
               >
-                My Restaurant
+                RSU Reward
               </h2>
             </Link>
 
@@ -94,6 +94,14 @@ export default function RootLayout({ children }) {
                       Admin Panel
                     </Link>
                   )}
+
+                  {user && user.role === "merchant" && (
+                    <Link href="/merchant" 
+                    style={{ textDecoration:'none', color:'#333', fontSize:'16px' }}>
+                      Merchant Panel
+                    </Link>
+                  )}
+
 
                   <Link
                     href="/profile"

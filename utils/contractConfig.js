@@ -1,4 +1,4 @@
-export const CONTRACT_ADDRESS = "0xC4B281E8C5A9833e2f5C7AA638E54B1af6AC27f5";
+export const CONTRACT_ADDRESS = "0x203Fc255dec5ac312F49638A379bB946E8604bCC";
 
 export const CONTRACT_ABI = [
     {
@@ -258,16 +258,16 @@ export const CONTRACT_ABI = [
         "type": "function"
     },
     {
-        "inputs": [],
-        "name": "MERCHANT_ROLE",
-        "outputs": [
+        "inputs": [
             {
-                "internalType": "bytes32",
-                "name": "",
-                "type": "bytes32"
+                "internalType": "address",
+                "name": "account",
+                "type": "address"
             }
         ],
-        "stateMutability": "view",
+        "name": "addAdmin",
+        "outputs": [],
+        "stateMutability": "nonpayable",
         "type": "function"
     },
     {
@@ -358,6 +358,19 @@ export const CONTRACT_ABI = [
         "type": "function"
     },
     {
+        "inputs": [],
+        "name": "getAllAdmins",
+        "outputs": [
+            {
+                "internalType": "address[]",
+                "name": "",
+                "type": "address[]"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
         "inputs": [
             {
                 "internalType": "bytes32",
@@ -397,6 +410,25 @@ export const CONTRACT_ABI = [
     {
         "inputs": [
             {
+                "internalType": "address",
+                "name": "account",
+                "type": "address"
+            }
+        ],
+        "name": "hasAdminRole",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
                 "internalType": "bytes32",
                 "name": "role",
                 "type": "bytes32"
@@ -416,24 +448,6 @@ export const CONTRACT_ABI = [
             }
         ],
         "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "to",
-                "type": "address"
-            },
-            {
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-            }
-        ],
-        "name": "mintManual",
-        "outputs": [],
-        "stateMutability": "nonpayable",
         "type": "function"
     },
     {
@@ -479,29 +493,11 @@ export const CONTRACT_ABI = [
         "inputs": [
             {
                 "internalType": "address",
-                "name": "from",
-                "type": "address"
-            },
-            {
-                "internalType": "uint256",
-                "name": "amount",
-                "type": "uint256"
-            }
-        ],
-        "name": "redeemFrom",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "merchant",
+                "name": "account",
                 "type": "address"
             }
         ],
-        "name": "removeMerchant",
+        "name": "removeAdmin",
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
@@ -556,19 +552,6 @@ export const CONTRACT_ABI = [
             }
         ],
         "name": "reward",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "merchant",
-                "type": "address"
-            }
-        ],
-        "name": "setMerchant",
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
@@ -693,4 +676,4 @@ export const CONTRACT_ABI = [
         "stateMutability": "payable",
         "type": "receive"
     }
-];
+]
