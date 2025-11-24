@@ -17,18 +17,15 @@ export default function PaymentPage() {
   
   // ส่วนของ RSU Token
   const [walletAddress, setWalletAddress] = useState('');
-  const [tokenBalance, setTokenBalance] = useState(0); // ยอดเหรียญที่มี
-  const [useTokenAmount, setUseTokenAmount] = useState(''); // จำนวนที่ต้องการใช้
-  const [tokenDiscount, setTokenDiscount] = useState(0); // มูลค่าส่วนลดจาก Token
+  const [tokenBalance, setTokenBalance] = useState(0); 
+  const [useTokenAmount, setUseTokenAmount] = useState(''); 
+  const [tokenDiscount, setTokenDiscount] = useState(0); 
 
-  // ราคาสุทธิ
   const [finalTotal, setFinalTotal] = useState(0);
-
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdBillCode, setCreatedBillCode] = useState('');
 
   useEffect(() => {
-    // 1. โหลด User & Items
     const userData = localStorage.getItem('user');
     const itemsData = localStorage.getItem('selectedItems');
 
@@ -48,30 +45,26 @@ export default function PaymentPage() {
     const items = JSON.parse(itemsData);
     setSelectedItems(items);
 
-    // 2. คำนวณราคาพื้นฐาน
     const sum = items.reduce((acc, it) => acc + (it.item_price * it.quantity), 0);
     setTotalPrice(sum);
 
-    // 3. คำนวณ VIP Discount & Delivery
     let delivery = 20;
     let vipDisc = 0;
 
     if (parsedUser.user_type === 'vip') {
       delivery = 0;
-      vipDisc = sum * 0.20; // ลด 20%
+      vipDisc = sum * 0.20; 
     }
     setDeliveryFee(delivery);
     setVipDiscount(vipDisc);
 
-    // 4. เช็ค Wallet เพื่อดึงยอดเหรียญ
     checkWalletTokenBalance();
 
   }, []);
 
-  // คำนวณ Final Total ทุกครั้งที่มีการเปลี่ยนแปลงค่าต่างๆ
   useEffect(() => {
     const total = totalPrice + deliveryFee - vipDiscount - tokenDiscount;
-    setFinalTotal(total > 0 ? total : 0); // ห้ามติดลบ
+    setFinalTotal(total > 0 ? total : 0);
   }, [totalPrice, deliveryFee, vipDiscount, tokenDiscount]);
 
   const checkWalletTokenBalance = async () => {
@@ -84,7 +77,6 @@ export default function PaymentPage() {
           const address = accounts[0].address;
           setWalletAddress(address);
 
-          // ดึงยอดเหรียญจาก Contract
           const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
           const balanceWei = await contract.balanceOf(address);
           const balance = parseFloat(ethers.formatEther(balanceWei));
@@ -106,7 +98,6 @@ export default function PaymentPage() {
       return;
     }
 
-    // Validation: ห้ามใช้เกินที่มี และ ห้ามเกินยอดที่ต้องจ่าย (หลังจากหัก VIP แล้ว)
     const maxPayable = totalPrice + deliveryFee - vipDiscount;
     
     if (amount > tokenBalance) {
@@ -115,15 +106,14 @@ export default function PaymentPage() {
       setUseTokenAmount('');
     } else if (amount > maxPayable) {
       alert("คุณใช้เหรียญเกินราคาสินค้าไม่ได้");
-      setTokenDiscount(maxPayable); // ให้ใช้ได้สูงสุดเท่าราคาของ
+      setTokenDiscount(maxPayable);
       setUseTokenAmount(maxPayable.toString());
     } else {
-      setTokenDiscount(amount); // Rate 1 Token = 1 Baht
+      setTokenDiscount(amount);
     }
   };
 
   const handleConfirm = async () => {
-    // ถ้ามีการใช้ Token ต้องโอนเหรียญกลับคืนร้านค้า (Burn หรือ Transfer to Admin)
     if (tokenDiscount > 0) {
         if (!window.ethereum) return alert("กรุณาติดตั้ง MetaMask เพื่อใช้เหรียญ");
         try {
@@ -131,29 +121,30 @@ export default function PaymentPage() {
             const signer = await provider.getSigner();
             const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
-            // โอนเหรียญไปยัง Admin Wallet (หรือ Address ร้านค้า)
-            // สมมติว่าโอนกลับไปที่ Deployer/Admin (ต้องแก้เป็น Address จริงของร้าน)
             const SHOP_WALLET = "0xe080bbfc9c7545421b0c3d3d13a820c853013302"; 
             
             const tx = await contract.transfer(SHOP_WALLET, ethers.parseEther(tokenDiscount.toString()));
-            await tx.wait(); // รอจนโอนสำเร็จ
+            await tx.wait(); 
             
         } catch (err) {
             console.error(err);
             alert("การจ่ายเหรียญล้มเหลว: " + (err.reason || err.message));
-            return; // หยุดการทำงาน ไม่บันทึก Order
+            return;
         }
     }
 
-    // บันทึก Order ลง Database
+    // ดึง store_id จากสินค้าชิ้นแรก (สมมติว่าสั่งร้านเดียวกันหมด)
+    const storeId = selectedItems.length > 0 ? selectedItems[0].store_id : null;
+
     try {
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: user.user_id,
+          store_id: storeId, // ✅ ส่ง store_id ไปด้วย
           delivery_fee: deliveryFee,
-          discount: vipDiscount + tokenDiscount, // รวมส่วนลดทั้งหมด
+          discount: vipDiscount + tokenDiscount,
           total_price: finalTotal,
           status: 'Pending',
           order_items: selectedItems.map(it => ({
@@ -203,7 +194,6 @@ export default function PaymentPage() {
         ))}
       </div>
 
-      {/* ส่วนลด RSU Token */}
       <div className="card" style={{ marginBottom: '1rem', backgroundColor: '#f0f8ff' }}>
         <h3>ใช้ RSU Token ลดราคา (1 Token = 1 บาท)</h3>
         {walletAddress ? (

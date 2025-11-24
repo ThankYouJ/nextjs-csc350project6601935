@@ -3,12 +3,6 @@ import { mysqlPool } from '@/utils/db';
 
 const db = mysqlPool.promise();
 
-/*
-orders:
-  order_id, order_time, status, delivery_fee, discount, total_price, user_id, bill_code
-*/
-
-// ฟังก์ชันสุ่มเลข+ตัวอักษร 16 หลัก (Alphanumeric)
 function generateBillCode() {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let code = '';
@@ -43,6 +37,7 @@ export async function POST(request) {
     const body = await request.json();
     const {
       user_id,
+      store_id, // ✅ รับ store_id
       delivery_fee = 0,
       discount = 0,
       total_price = 0,
@@ -50,23 +45,19 @@ export async function POST(request) {
       order_items = []
     } = body;
 
-    // 1. สร้าง bill_code และตรวจสอบความซ้ำ
     let billCode = '';
     let isUnique = false;
     let maxRetries = 10; 
 
     while (!isUnique && maxRetries > 0) {
       billCode = generateBillCode();
-      
       try {
-        // เช็คในฐานข้อมูลว่ามี bill_code นี้หรือยัง
         const [existing] = await db.query('SELECT order_id FROM orders WHERE bill_code = ?', [billCode]);
         if (existing.length === 0) {
           isUnique = true;
         }
       } catch (err) {
         console.error("Check BillCode Error:", err.message);
-        // ถ้า Error เพราะไม่มีคอลัมน์ bill_code หรือผิด Type ให้แจ้งเตือนชัดเจน
         throw new Error("Database error: Please check if 'bill_code' column exists and is VARCHAR type.");
       }
       maxRetries--;
@@ -76,17 +67,16 @@ export async function POST(request) {
       throw new Error("Failed to generate unique bill code");
     }
 
-    // 2. Insert ลงตาราง orders
+    // ✅ เพิ่ม store_id ลงในคำสั่ง INSERT
     const [resOrder] = await db.query(
       `INSERT INTO orders
-       (user_id, delivery_fee, discount, total_price, status, order_time, bill_code)
-       VALUES (?,?,?,?,?,NOW(),?)`,
-      [user_id, delivery_fee, discount, total_price, status, billCode]
+       (user_id, store_id, delivery_fee, discount, total_price, status, order_time, bill_code)
+       VALUES (?,?,?,?,?,?,NOW(),?)`,
+      [user_id, store_id, delivery_fee, discount, total_price, status, billCode]
     );
     
     const newOrderId = resOrder.insertId;
 
-    // 3. Insert ลงตาราง order_items
     if (order_items.length > 0) {
         const itemValues = order_items.map(it => [newOrderId, it.item_id, it.quantity, it.item_price]);
         await db.query(
