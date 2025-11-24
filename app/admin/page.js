@@ -339,7 +339,7 @@ export default function AdminPage() {
         from: type === 'Reward' ? 'LOCAL_ADMIN' : address,
         to: type === 'Reward' ? address : 'LOCAL_ADMIN',
         valueFormatted: amount.toString(),
-        tokenSymbol: 'RTK',
+        tokenSymbol: 'RSU',
         timeStamp: nowSec,
         txType: type,     // used by txType()
         local: true,      // optional flag, not required
@@ -348,68 +348,108 @@ export default function AdminPage() {
     ]);
   };
 
-  // Helper for setMerchant & removeMerchant
-  const [merchantAddress, setMerchantAddress] = useState('');
-  const [merchantCheckResult, setMerchantCheckResult] = useState(null); // null | true | false
+  // Helper for admin management
+  const [adminAddress, setAdminAddress] = useState('');
+  const [adminCheckResult, setAdminCheckResult] = useState(null); // null | true | false
+  const [withdrawAddress, setWithdrawAddress] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState(''); // in ETH
+  const [adminList, setAdminList] = useState([]);
 
-  const handleSetMerchant = async () => {
-    if (!merchantAddress) {
-      alert('Please enter merchant wallet address');
+  const loadAdminList = async () => {
+    try {
+      const res = await fetch("/api/token/admins");
+      const data = await res.json();
+      if (!data.error && Array.isArray(data.admins)) {
+        setAdminList(data.admins);
+      }
+    } catch (err) {
+      console.error("Failed to load admin list:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (view === "token") {
+      loadAdminList();
+    }
+  }, [view]);
+
+  const handleAddAdmin = async () => {
+    if (!adminAddress) {
+      alert('Please enter admin wallet address');
       return;
     }
 
     const data = await tokenRequest({
-      action: 'setMerchant',
-      address: merchantAddress,
+      action: 'addAdmin',
+      address: adminAddress,
     });
 
     if (data.error) {
       setTokenError(data.error);
     } else {
       setTokenTxHash(data.txHash);
-      alert('Merchant granted successfully');
+      alert('Admin added successfully');
     }
   };
 
-  const handleRemoveMerchant = async () => {
-    if (!merchantAddress) {
-      alert('Please enter merchant wallet address');
+  const handleRemoveAdmin = async () => {
+    if (!adminAddress) {
+      alert('Please enter admin wallet address');
       return;
     }
 
     const data = await tokenRequest({
-      action: 'removeMerchant',
-      address: merchantAddress,
+      action: 'removeAdmin',
+      address: adminAddress,
     });
 
     if (data.error) {
       setTokenError(data.error);
     } else {
       setTokenTxHash(data.txHash);
-      alert('Merchant removed successfully');
+      alert('Admin removed successfully');
     }
   };
 
-  const handleCheckMerchant = async () => {
-    if (!merchantAddress) {
-      alert('Please enter merchant wallet address');
+  const handleCheckAdmin = async () => {
+    if (!adminAddress) {
+      alert('Please enter admin wallet address');
       return;
     }
 
     const data = await tokenRequest({
-      action: 'isMerchant',
-      address: merchantAddress,
+      action: 'isAdmin',
+      address: adminAddress,
     });
 
     if (data.error) {
       setTokenError(data.error);
-      setMerchantCheckResult(null);
+      setAdminCheckResult(null);
     } else {
-      setMerchantCheckResult(data.isMerchant);
+      setAdminCheckResult(data.isAdmin);
     }
   };
 
+  const handleWithdraw = async () => {
+    if (!withdrawAddress || !withdrawAmount) {
+      alert('Please enter withdraw wallet and amount');
+      return;
+    }
 
+    const data = await tokenRequest({
+      action: 'withdraw',
+      address: withdrawAddress,
+      amount: withdrawAmount, // ETH string
+    });
+
+    if (data.error) {
+      setTokenError(data.error);
+    } else {
+      setTokenTxHash(data.txHash);
+      alert('Withdraw transaction sent');
+    }
+  };
+  // End of helpers
 
   if (!user) return null; // ถ้าไม่มี user ให้ redirect ไปหน้าแรก
 
@@ -733,7 +773,7 @@ export default function AdminPage() {
                   color: '#444',
                 }}
               >
-                Amount (RTK)
+                Amount (RSU)
               </label>
 
               <input
@@ -768,7 +808,7 @@ export default function AdminPage() {
                 Reward
               </button>
               <button className="button button-danger" style={{ marginLeft: '8px' }} disabled={tokenLoading} onClick={handleRedeem}>
-                Redeem
+                Redeem (From Yourself)
               </button>
             </div>
 
@@ -779,7 +819,7 @@ export default function AdminPage() {
                   minimumFractionDigits: 4,
                   maximumFractionDigits: 4,
                 })}{" "}
-                RTK
+                RSU
               </p>
             )}
 
@@ -803,10 +843,11 @@ export default function AdminPage() {
             )}
           </div>
 
-          {/* --- Merchant Management card --- */}
+          {/* --- Admin Management card --- */}
           <div className="card" style={{ marginTop: '1rem', marginBottom: '1rem' }}>
-            <h3 style={{ marginTop: 0 }}>Merchant Management</h3>
+            <h3 style={{ marginTop: 0 }}>Admin Management</h3>
 
+            {/* Admin address input */}
             <div
               style={{
                 display: 'flex',
@@ -823,15 +864,15 @@ export default function AdminPage() {
                   color: '#444',
                 }}
               >
-                Merchant Wallet Address
+                Admin Wallet Address
               </label>
 
               <input
                 placeholder="0x..."
-                value={merchantAddress}
+                value={adminAddress}
                 onChange={(e) => {
-                  setMerchantAddress(e.target.value);
-                  setMerchantCheckResult(null); // reset when typing
+                  setAdminAddress(e.target.value);
+                  setAdminCheckResult(null); // reset when typing
                 }}
                 style={{
                   width: '100%',
@@ -855,27 +896,29 @@ export default function AdminPage() {
               />
             </div>
 
+            {/* Admin buttons + status */}
             <div
               style={{
                 display: 'flex',
                 flexWrap: 'wrap',
                 gap: '0.5rem',
                 alignItems: 'center',
+                marginBottom: '0.75rem',
               }}
             >
               <button
                 className="button"
                 style={{ backgroundColor: '#2563eb' }}
-                onClick={handleSetMerchant}
+                onClick={handleAddAdmin}
               >
-                Add / Set Merchant
+                Add Admin
               </button>
 
               <button
                 className="button button-danger"
-                onClick={handleRemoveMerchant}
+                onClick={handleRemoveAdmin}
               >
-                Remove Merchant
+                Remove Admin
               </button>
 
               <button
@@ -885,28 +928,158 @@ export default function AdminPage() {
                   color: '#111',
                   border: '1px solid #e5e7eb',
                 }}
-                onClick={handleCheckMerchant}
+                onClick={handleCheckAdmin}
               >
-                Check Merchant Role
+                Check Admin Role
               </button>
 
-              {merchantCheckResult !== null && (
+              {adminCheckResult !== null && (
                 <span
                   style={{
                     marginLeft: '0.5rem',
                     fontSize: '0.85rem',
                     padding: '0.25rem 0.6rem',
                     borderRadius: '999px',
-                    backgroundColor: merchantCheckResult ? '#dcfce7' : '#fee2e2',
-                    color: merchantCheckResult ? '#166534' : '#991b1b',
+                    backgroundColor: adminCheckResult ? '#dcfce7' : '#fee2e2',
+                    color: adminCheckResult ? '#166534' : '#991b1b',
                     fontWeight: 600,
                   }}
                 >
-                  {merchantCheckResult ? 'Has MERCHANT_ROLE' : 'Not a merchant'}
+                  {adminCheckResult ? 'Has ADMIN role' : 'Not an admin'}
                 </span>
               )}
             </div>
+
+            {/* Withdraw section */}
+            <div
+              style={{
+                borderTop: '1px solid #eee',
+                paddingTop: '0.75rem',
+                marginTop: '0.25rem',
+              }}
+            >
+              <h4 style={{ margin: 0, marginBottom: '0.5rem', fontSize: '0.95rem' }}>
+                Withdraw Contract ETH
+              </h4>
+
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.3rem',
+                  marginBottom: '0.5rem',
+                }}
+              >
+                <label
+                  style={{
+                    fontSize: '0.85rem',
+                    fontWeight: 500,
+                    color: '#555',
+                  }}
+                >
+                  Destination Wallet
+                </label>
+                <input
+                  placeholder="0x..."
+                  value={withdrawAddress}
+                  onChange={(e) => setWithdrawAddress(e.target.value)}
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid #ddd',
+                    outline: 'none',
+                    fontSize: '0.9rem',
+                    background: '#fafafa',
+                  }}
+                />
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.3rem',
+                  marginBottom: '0.5rem',
+                }}
+              >
+                <label
+                  style={{
+                    fontSize: '0.85rem',
+                    fontWeight: 500,
+                    color: '#555',
+                  }}
+                >
+                  Amount (ETH)
+                </label>
+                <input
+                  placeholder="0.05"
+                  value={withdrawAmount}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (/^\d*\.?\d*$/.test(v)) setWithdrawAmount(v);
+                  }}
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid #ddd',
+                    outline: 'none',
+                    fontSize: '0.9rem',
+                    background: '#fafafa',
+                  }}
+                />
+              </div>
+
+              <button
+                className="button"
+                style={{ backgroundColor: '#16a34a' }}
+                onClick={handleWithdraw}
+              >
+                Withdraw
+              </button>
+            </div>
+
+            {/* Existing withdraw section above */}
+            <hr style={{ margin: "1rem 0", border: "0.5px solid #eee" }} />
+
+            <h4 style={{ margin: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>
+              Current Admins
+            </h4>
+
+            <div
+              style={{
+                background: "#fafafa",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                padding: "0.75rem",
+                fontSize: "0.85rem",
+                maxHeight: "200px",
+                overflowY: "auto",
+              }}
+            >
+              {adminList.length === 0 ? (
+                <div style={{ color: "#777" }}>No admins found</div>
+              ) : (
+                adminList.map((addr, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: "0.35rem 0",
+                      borderBottom: idx < adminList.length - 1 ? "1px solid #eee" : "none",
+                      fontFamily: "monospace",
+                    }}
+                  >
+                    <strong>{idx + 1}.</strong> {addr}
+                  </div>
+                ))
+              )}
+            </div>
+
           </div>
+
 
           {/* --- Recent Token Transactions card --- */}
           {tokenTxs.length > 0 && (
@@ -970,7 +1143,7 @@ export default function AdminPage() {
                             maximumFractionDigits: 4,
                           })
                           : '-'}{' '}
-                        {tx.tokenSymbol || 'RTK'}
+                        {tx.tokenSymbol || 'RSU'}
                       </span>
 
                     </div>

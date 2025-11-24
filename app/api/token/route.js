@@ -24,8 +24,6 @@ async function getContract() {
   return { contract, decimals: cachedDecimals };
 }
 
-const MERCHANT_ROLE = '0x3c4a2d89ed8b4cf4347fec87df1c38410f8fc538bf9fd64c10f2717bc0feff36';
-
 export async function POST(req) {
   try {
     const { action, address, amount } = await req.json();
@@ -46,7 +44,7 @@ export async function POST(req) {
       });
     }
 
-    // ----- reward (merchant gives RTK) -----
+    // ----- reward (Admin gives RTK) -----
     if (action === 'reward') {
       if (!address || amount == null) {
         return NextResponse.json({ error: 'Missing address or amount' }, { status: 400 });
@@ -63,14 +61,14 @@ export async function POST(req) {
       });
     }
 
-    // ----- redeemFrom (take RTK back) -----
+    // ----- redeem (Burn RTK away) -----
     if (action === 'redeem') {
       if (!address || amount == null) {
         return NextResponse.json({ error: 'Missing address or amount' }, { status: 400 });
       }
 
       const amt = ethers.parseUnits(amount.toString(), decimals);
-      const tx = await contract.redeemFrom(address, amt);
+      const tx = await contract.redeem(amt);
       const rc = await tx.wait();
 
       return NextResponse.json({
@@ -79,48 +77,65 @@ export async function POST(req) {
       });
     }
 
-    // ----- setMerchant (grant MERCHANT_ROLE) -----
-    if (action === 'setMerchant') {
-      if (!address) {
-        return NextResponse.json({ error: 'Missing merchant address' }, { status: 400 });
-      }
-
-      const tx = await contract.setMerchant(address);
-      const rc = await tx.wait();
-
-      return NextResponse.json({
-        txHash: rc.hash,
-        status: rc.status,
-      });
-    }
-
-    // ----- removeMerchant (revoke MERCHANT_ROLE) -----
-    if (action === 'removeMerchant') {
-      if (!address) {
-        return NextResponse.json({ error: 'Missing merchant address' }, { status: 400 });
-      }
-
-      const tx = await contract.removeMerchant(address);
-      const rc = await tx.wait();
-
-      return NextResponse.json({
-        txHash: rc.hash,
-        status: rc.status,
-      });
-    }
-
-    // ----- isMerchant (check MERCHANT_ROLE) -----
-    if (action === 'isMerchant') {
+        // ----- isAdmin (check DEFAULT_ADMIN_ROLE) -----
+    if (action === 'isAdmin') {
       if (!address) {
         return NextResponse.json({ error: 'Missing address' }, { status: 400 });
       }
 
-      const has = await contract.hasRole(MERCHANT_ROLE, address);
-      return NextResponse.json({ isMerchant: has });
+      // Uses your hasAdminRole helper in the contract
+      const has = await contract.hasAdminRole(address);
+      return NextResponse.json({ isAdmin: has });
     }
 
+    // ----- addAdmin -----
+    if (action === 'addAdmin') {
+      if (!address) {
+        return NextResponse.json({ error: 'Missing address' }, { status: 400 });
+      }
 
+      const tx = await contract.addAdmin(address);
+      const rc = await tx.wait();
 
+      return NextResponse.json({
+        txHash: rc.hash,
+        status: rc.status,
+      });
+    }
+
+    // ----- removeAdmin -----
+    if (action === 'removeAdmin') {
+      if (!address) {
+        return NextResponse.json({ error: 'Missing address' }, { status: 400 });
+      }
+
+      const tx = await contract.removeAdmin(address);
+      const rc = await tx.wait();
+
+      return NextResponse.json({
+        txHash: rc.hash,
+        status: rc.status,
+      });
+    }
+
+    // ----- withdraw ETH (amount in ETH from UI) -----
+    if (action === 'withdraw') {
+      if (!address || amount == null) {
+        return NextResponse.json({ error: 'Missing address or amount' }, { status: 400 });
+      }
+
+      // amount is in ETH as string, convert to wei
+      const weiAmount = ethers.parseEther(amount.toString());
+      const tx = await contract.withdraw(address, weiAmount);
+      const rc = await tx.wait();
+
+      return NextResponse.json({
+        txHash: rc.hash,
+        status: rc.status,
+      });
+    }
+
+    // End of functions
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   } catch (err) {
     console.error('TOKEN API ERROR:', err);
