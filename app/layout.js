@@ -95,6 +95,14 @@ export default function RootLayout({ children }) {
                     </Link>
                   )}
 
+                  {user && user.role === "merchant" && (
+                    <Link href="/merchant" 
+                    style={{ textDecoration:'none', color:'#333', fontSize:'16px' }}>
+                      Merchant Panel
+                    </Link>
+                  )}
+
+
                   <Link
                     href="/profile"
                     style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}
