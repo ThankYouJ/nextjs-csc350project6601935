@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
-const LOGO_CHATRAMUE = '/mnt/data/chatramue.png';
-const LOGO_DQ = '/mnt/data/DQ.png';
-const LOGO_KFC = '/mnt/data/KFC.png';
+// รูป Placeholder กรณีไม่มีรูป
+const LOGO_DEFAULT = 'https://via.placeholder.com/150?text=No+Image';
 
 export default function MerchantPage() {
   const [user, setUser] = useState(null);
@@ -35,6 +34,10 @@ export default function MerchantPage() {
   async function uploadToImgBB(file) {
     try {
       const apiKey = process.env.NEXT_PUBLIC_IMGBB_KEY;
+      if (!apiKey) {
+        alert("กรุณาตั้งค่า NEXT_PUBLIC_IMGBB_KEY ในไฟล์ .env ก่อน");
+        return null;
+      }
 
       const formData = new FormData();
       formData.append("image", file);
@@ -70,21 +73,21 @@ export default function MerchantPage() {
     }
 
     const u = JSON.parse(stored);
-    if (u.role !== "merchant") {
-      alert("Only merchant allowed");
-      window.location.href = "/";
-      return;
-    }
-
+    // อนุญาตให้เข้ามาได้ถ้ามี User (แต่ถ้าไม่ใช่เจ้าของร้าน ระบบจะบอกเองว่าไม่มีร้าน)
     setUser(u);
 
-    fetch(`/api/stores?merchant_id=${u.user_id}`)
+    // ใช้ user_id ในการค้นหาร้าน (ตาม API ที่แก้ไปก่อนหน้า)
+    fetch(`/api/stores?user_id=${u.user_id}`)
       .then(res => res.json())
       .then(data => {
         let myStore = null;
 
-        if (!Array.isArray(data) && data.store_id) myStore = data;
-        else if (Array.isArray(data)) myStore = data.find(s => s.merchant_id == u.user_id);
+        // API อาจส่งกลับมาเป็น Array หรือ Object เดียว
+        if (Array.isArray(data)) {
+            if (data.length > 0) myStore = data[0];
+        } else if (data.store_id) {
+            myStore = data;
+        }
 
         if (!myStore) {
           setStore(null);
@@ -98,10 +101,14 @@ export default function MerchantPage() {
           .then(r => r.json())
           .then(m => setMenus(m));
 
-        // โหลดออเดอร์ร้านนี้
-        fetch(`/api/merchant/orders?store_id=${myStore.store_id}`)
+        // โหลดออเดอร์ร้านนี้ (API ต้องรองรับ)
+        // ถ้ายังไม่มี API merchant/orders ให้ใช้ api/orders?store_id=... แทนชั่วคราวได้
+        fetch(`/api/orders?store_id=${myStore.store_id}`) 
           .then(r => r.json())
-          .then(o => setOrders(o || []));
+          .then(o => {
+             // กรองเฉพาะออเดอร์ที่ไม่ใช่ Cancelled (หรือจะเอาหมดก็ได้)
+             setOrders(o || []);
+          });
       });
   }, []);
 
@@ -111,7 +118,10 @@ export default function MerchantPage() {
     return (
       <div className="container">
         <h1>Merchant Panel</h1>
-        <p>คุณยังไม่มีร้านในระบบ</p>
+        <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
+            <h2>คุณยังไม่มีร้านในระบบ</h2>
+            <p>กรุณาติดต่อ Admin หรือลงทะเบียนร้านค้า</p>
+        </div>
       </div>
     );
   }
@@ -152,17 +162,28 @@ export default function MerchantPage() {
       item_price: Number(menuForm.item_price),
       store_id: store.store_id,
     };
+    
+    // ถ้าเป็นการแก้ไข ต้องส่ง item_id ไปด้วย
+    if (editingItem) {
+        payload.item_id = editingItem.item_id;
+    }
 
-    const res = await fetch("/api/menu_items", {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    try {
+        const res = await fetch("/api/menu_items", {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
 
-    const data = await res.json();
-    if (!data.error) {
-      alert(editingItem ? "แก้ไขเมนูสำเร็จ" : "สร้างเมนูสำเร็จ");
-      window.location.reload();
+        const data = await res.json();
+        if (!data.error) {
+            alert(editingItem ? "แก้ไขเมนูสำเร็จ" : "สร้างเมนูสำเร็จ");
+            window.location.reload();
+        } else {
+            alert(data.error);
+        }
+    } catch (err) {
+        console.error(err);
     }
   };
 
@@ -197,45 +218,72 @@ export default function MerchantPage() {
   // เปลี่ยนสถานะออเดอร์
   // -------------------------
   const handleChangeOrderStatus = async (order_id, newStatus) => {
-    await fetch("/api/merchant/orders", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ order_id, status: newStatus })
-    });
+    try {
+        await fetch("/api/orders", { // ใช้ API orders ทั่วไป
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ order_id, status: newStatus })
+        });
 
-    setOrders(prev =>
-      prev.map(o => o.order_id === order_id ? { ...o, status: newStatus } : o)
-    );
+        setOrders(prev =>
+            prev.map(o => o.order_id === order_id ? { ...o, status: newStatus } : o)
+        );
 
-    alert("อัปเดตสถานะสำเร็จ");
+        alert("อัปเดตสถานะสำเร็จ");
+    } catch (err) {
+        console.error(err);
+        alert("เกิดข้อผิดพลาด");
+    }
   };
 
   return (
     <div className="container">
       <h1>Merchant Panel</h1>
 
-      <h2>ร้านของคุณ: {store.store_name}</h2>
-
-      <div style={{ marginTop: 12 }}>
-        <button className="button" onClick={openNewMenuModal}>+ เพิ่มเมนูใหม่</button>
+      <div className="card" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '15px' }}>
+         {store.store_image && <img src={store.store_image} style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover'}} />}
+         <div>
+            <h2 style={{margin: 0}}>ร้าน: {store.store_name}</h2>
+            <p style={{margin: 0, color: '#666'}}>{store.location}</p>
+         </div>
       </div>
 
-      <div className="flex" style={{ margin: "1rem 0" }}>
-        <button className="button" onClick={() => setView("menus")}>เมนู</button>
-        <button className="button" onClick={() => setView("orders")}>ออเดอร์ร้าน</button>
+      <div className="flex" style={{ margin: "1rem 0", gap: '10px' }}>
+        <button 
+            className="button" 
+            onClick={() => setView("menus")}
+            style={{ backgroundColor: view === 'menus' ? '#0070f3' : '#ccc' }}
+        >
+            จัดการเมนู
+        </button>
+        <button 
+            className="button" 
+            onClick={() => setView("orders")}
+            style={{ backgroundColor: view === 'orders' ? '#0070f3' : '#ccc' }}
+        >
+            รายการออเดอร์
+        </button>
       </div>
 
       {/* ---------------- MENU VIEW ---------------- */}
       {view === "menus" && (
-        <div className="flex" style={{ flexWrap: "wrap" }}>
-          {menus.map(m => (
-            <div key={m.item_id} className="card" style={{ width: 220, margin: 10, cursor: "pointer" }}
-                 onClick={() => openEditMenuModal(m)}>
-              <img src={m.item_image || LOGO_CHATRAMUE} style={{ width: "100%", height: 140, objectFit: "cover" }} />
-              <h4>{m.item_name}</h4>
-              <p>{m.item_price} บาท</p>
+        <div>
+            <div style={{ marginBottom: 12 }}>
+                <button className="button" onClick={openNewMenuModal} style={{ backgroundColor: '#28a745' }}>+ เพิ่มเมนูใหม่</button>
             </div>
-          ))}
+            <div className="flex" style={{ flexWrap: "wrap" }}>
+            {menus.map(m => (
+                <div key={m.item_id} className="card" style={{ width: 220, margin: 10, cursor: "pointer", padding: 0, overflow: 'hidden' }}
+                    onClick={() => openEditMenuModal(m)}>
+                <img src={m.item_image || LOGO_DEFAULT} style={{ width: "100%", height: 140, objectFit: "cover" }} />
+                <div style={{ padding: '10px' }}>
+                    <h4 style={{ margin: '0 0 5px 0' }}>{m.item_name}</h4>
+                    <p style={{ margin: 0, color: 'green' }}>{m.item_price} บาท</p>
+                    <p style={{ fontSize: '0.8rem', color: '#999' }}>{m.description}</p>
+                </div>
+                </div>
+            ))}
+            </div>
         </div>
       )}
 
@@ -243,32 +291,52 @@ export default function MerchantPage() {
       {view === "orders" && (
         <div>
           <h3>ออเดอร์ของร้าน</h3>
+          {orders.length === 0 && <p>ยังไม่มีออเดอร์</p>}
           {orders.map(order => (
             <div key={order.order_id} className="card" style={{ marginBottom: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <b># {order.order_id}</b>
-                <button className="button" onClick={() => toggleExpandOrder(order.order_id)}>
-                  {expandedOrders[order.order_id] ? "ซ่อน" : "แสดง"}
-                </button>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: 'center' }}>
+                <div>
+                    <b>Order #{order.order_id}</b>
+                    <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                        {new Date(order.order_time).toLocaleString('th-TH')}
+                    </div>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <select
+                        className="input"
+                        style={{ marginBottom: 0, width: '140px' }}
+                        value={order.status}
+                        onChange={(e) => handleChangeOrderStatus(order.order_id, e.target.value)}
+                    >
+                        <option value="Pending">Pending</option>
+                        <option value="Preparing">Preparing</option>
+                        <option value="Delivering">Delivering</option>
+                        <option value="Delivered">Delivered</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+
+                    <button className="button" onClick={() => toggleExpandOrder(order.order_id)} style={{ marginTop: 0 }}>
+                    {expandedOrders[order.order_id] ? "ซ่อน" : "ดูรายการ"}
+                    </button>
+                </div>
               </div>
 
-              <select
-                className="input"
-                value={order.status}
-                onChange={(e) => handleChangeOrderStatus(order.order_id, e.target.value)}
-              >
-                <option value="Pending">Pending</option>
-                <option value="Preparing">Preparing</option>
-                <option value="Delivering">Delivering</option>
-                <option value="Delivered">Delivered</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
-
               {expandedOrders[order.order_id] && (
-                <div style={{ marginTop: 10 }}>
-                  {orderItems[order.order_id]?.map(it => (
-                    <div key={it.order_item_id}>• {it.item_name} x {it.quantity}</div>
-                  ))}
+                <div style={{ marginTop: 10, background: '#f9f9f9', padding: '10px', borderRadius: '6px' }}>
+                  {orderItems[order.order_id] ? (
+                      orderItems[order.order_id].map(it => (
+                        <div key={it.order_item_id} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eee', padding: '4px 0' }}>
+                            <span>{it.item_name} x {it.quantity}</span>
+                            <span>{(it.item_price * it.quantity).toFixed(2)}</span>
+                        </div>
+                      ))
+                  ) : (
+                      <span>กำลังโหลดรายการ...</span>
+                  )}
+                  <div style={{ textAlign: 'right', marginTop: '10px', fontWeight: 'bold' }}>
+                      รวม: {order.total_price} บาท
+                  </div>
                 </div>
               )}
             </div>
@@ -278,7 +346,7 @@ export default function MerchantPage() {
 
       {/* ---------------- MODAL ---------------- */}
       {showMenuModal && (
-        <div className="modal-background" onClick={(e) => e.target === e.currentTarget && setShowMenuModal(false)}>
+        <div className="modal-background" style={{zIndex: 9999}} onClick={(e) => e.target === e.currentTarget && setShowMenuModal(false)}>
           <div className="modal-content">
 
             <h3>{editingItem ? "แก้ไขเมนู" : "เมนูใหม่"}</h3>
@@ -293,6 +361,7 @@ export default function MerchantPage() {
             <label>ราคา:</label>
             <input
               className="input"
+              type="number"
               value={menuForm.item_price}
               onChange={(e) => setMenuForm({ ...menuForm, item_price: e.target.value })}
             />
@@ -304,7 +373,7 @@ export default function MerchantPage() {
               onChange={(e) => setMenuForm({ ...menuForm, description: e.target.value })}
             />
 
-            <label>เลือกรูปเมนู:</label>
+            <label>เลือกรูปเมนู (Upload):</label>
             <input
               type="file"
               accept="image/*"
@@ -322,27 +391,27 @@ export default function MerchantPage() {
               <img
                 src={menuForm.item_image}
                 alt="preview"
-                style={{ width: 150, marginTop: 10, borderRadius: 8 }}
+                style={{ width: '100%', maxHeight: 200, objectFit: 'contain', marginTop: 10, borderRadius: 8, border: '1px solid #ddd' }}
               />
             )}
 
-            <label>หรือใส่ URL รูปเอง:</label>
+            <label style={{ marginTop: '10px', display: 'block' }}>หรือใส่ URL รูปเอง:</label>
             <input
               className="input"
               value={menuForm.item_image}
               onChange={(e) => setMenuForm({ ...menuForm, item_image: e.target.value })}
             />
 
-            <div style={{ marginTop: 10 }}>
-              <button className="button" onClick={saveMenu}>Save</button>
+            <div style={{ marginTop: 15, display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button className="button" onClick={saveMenu} style={{ marginTop: 0 }}>Save</button>
 
               {editingItem && (
-                <button className="button button-danger" onClick={deleteMenu} style={{ marginLeft: 8 }}>
+                <button className="button button-danger" onClick={deleteMenu} style={{ marginTop: 0 }}>
                   Delete
                 </button>
               )}
 
-              <button className="button" style={{ marginLeft: 8 }} onClick={() => setShowMenuModal(false)}>
+              <button className="button" style={{ backgroundColor: '#6c757d', marginTop: 0 }} onClick={() => setShowMenuModal(false)}>
                 Cancel
               </button>
             </div>
