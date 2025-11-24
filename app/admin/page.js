@@ -4,12 +4,195 @@ import { useEffect, useState } from 'react';
 
 export default function AdminPage() {
   // ประกาศ state สำหรับเก็บข้อมูลต่างๆ
+  // state + handlers for user
   const [user, setUser] = useState(null);
+  const [newUser, setNewUser] = useState({
+    username: '',
+    fname: '',
+    lname: '',
+    email: '',
+    user_phone: '',
+    user_address: '',
+    user_type: 'regular',
+    role: 'user',
+    password: '',
+  });
+
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [editForm, setEditForm] = useState({
+    username: '',
+    fname: '',
+    lname: '',
+    email: '',
+    user_phone: '',
+    user_address: '',
+    user_type: '',
+    role: '',
+  });
+
+  // CREATE USER
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fname: newUser.fname,
+          lname: newUser.lname,
+          username: newUser.username,
+          email: newUser.email,
+          password: newUser.password,
+          phone: newUser.user_phone,
+          address: newUser.user_address,
+          user_type: newUser.user_type || 'regular',
+          role: newUser.role,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        console.error('Create user error:', data.error || data);
+        alert('Error creating user: ' + (data.error || res.status));
+        return;
+      }
+
+      // API currently returns { message, insertId } only
+      // simplest: just refetch users instead of guessing the row
+      const refreshed = await fetch('/api/users').then(r => r.json());
+      setUsers(refreshed);
+
+      // Reset form
+      setNewUser({
+        username: '',
+        fname: '',
+        lname: '',
+        email: '',
+        user_phone: '',
+        user_address: '',
+        user_type: 'user',
+        role: 'user',
+        password: '',
+      });
+    } catch (err) {
+      console.error(err);
+      alert('Error creating user (network)');
+    }
+  };
+
+  // EDIT START
+  const startEditUser = (u) => {
+    setEditingUserId(u.user_id);
+    setEditForm({
+      username: u.username || '',
+      fname: u.fname || '',
+      lname: u.lname || '',
+      email: u.email || '',
+      user_phone: u.user_phone || '',
+      user_address: u.user_address || '',
+      user_type: u.user_type || '',
+      role: u.role || 'user',
+    });
+  };
+
+  // CANCEL EDIT
+  const cancelEditUser = () => {
+    setEditingUserId(null);
+  };
+
+  // SAVE EDIT
+  const handleSaveUser = async (userId) => {
+    try {
+      const res = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          username: editForm.username,
+          fname: editForm.fname,
+          lname: editForm.lname,
+          email: editForm.email,
+          phone: editForm.user_phone,       // map -> backend "phone"
+          address: editForm.user_address,   // map -> backend "address"
+          user_type: editForm.user_type,
+          role: editForm.role,
+        }),
+      });
+
+      const updated = await res.json();
+      if (!res.ok || updated.error) {
+        console.error('Update user error:', updated.error || updated);
+        alert('Error updating user');
+        return;
+      }
+
+      // Replace the correct user in state (including username)
+      setUsers((prev) =>
+        prev.map((u) => (u.user_id === userId ? updated : u))
+      );
+
+      setEditingUserId(null);
+    } catch (err) {
+      console.error(err);
+      alert('Error updating user (network)');
+    }
+  };
+
+
+
+  // CHANGE ROLE QUICKLY (dropdown)
+  const handleChangeRole = async (userId, newRole) => {
+    const target = users.find((u) => u.user_id === userId);
+    if (!target) return;
+
+    try {
+      const res = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          username: target.username,
+          fname: target.fname,
+          lname: target.lname,
+          email: target.email,
+          phone: target.user_phone,
+          address: target.user_address,
+          user_type: target.user_type,
+          role: newRole,
+        }),
+      });
+
+      const updated = await res.json();
+      if (!res.ok || updated.error) {
+        console.error('Change role error:', updated.error || updated);
+        alert('Error changing role');
+        return;
+      }
+
+      setUsers((prev) =>
+        prev.map((u) => (u.user_id === userId ? updated : u))
+      );
+    } catch (err) {
+      console.error(err);
+      alert('Error changing role (network)');
+    }
+  };
+
+
+
+  // Default view
   const [view, setView] = useState('stores');
   // stores, selectedStore, storeForm สำหรับจัดการร้านค้า
   const [stores, setStores] = useState([]);
   const [selectedStore, setSelectedStore] = useState(null);
-  const [storeForm, setStoreForm] = useState({ store_name: '', store_phone: '', location: '', store_image: '' });
+  const [storeForm, setStoreForm] = useState({
+    store_name: '',
+    store_phone: '',
+    location: '',
+    store_image: '',
+    user_id: '',
+  });
   // showNewStoreModal สำหรับแสดง modal สร้างร้านค้าใหม่
   const [showNewStoreModal, setShowNewStoreModal] = useState(false);
   const [menuItems, setMenuItems] = useState([]);
@@ -52,6 +235,7 @@ export default function AdminPage() {
       store_phone: st.store_phone,
       location: st.location,
       store_image: st.store_image || '',
+      user_id: st.user_id || '',
     });
     // โหลดเมนูของร้านค้านั้นๆ
     fetch(`/api/menu_items?store_id=${st.store_id}`)
@@ -60,9 +244,16 @@ export default function AdminPage() {
   };
   // ฟังก์ชันสำหรับสร้างร้านค้าใหม่
   const handleNewStore = () => {
-    setStoreForm({ store_name: '', store_phone: '', location: '', store_image: '' });
+    setStoreForm({
+      store_name: '',
+      store_phone: '',
+      location: '',
+      store_image: '',
+      user_id: '',
+    });
     setShowNewStoreModal(true);
   };
+
   // ฟังก์ชันสำหรับบันทึกร้านค้า
   const handleSaveStore = async () => {
     try {
@@ -70,7 +261,10 @@ export default function AdminPage() {
       const res = await fetch('/api/stores', {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(storeForm)
+        body: JSON.stringify({
+          ...storeForm,
+          user_id: storeForm.user_id ? Number(storeForm.user_id) : null,
+        }),
       });
       const data = await res.json();
       if (!data.error) {
@@ -81,6 +275,7 @@ export default function AdminPage() {
       console.error(err);
     }
   };
+
   // ฟังก์ชันสำหรับลบร้านค้า
   const handleDeleteStore = async () => {
     if (!selectedStore) return;
@@ -517,6 +712,22 @@ export default function AdminPage() {
                   onChange={e => setStoreForm({ ...storeForm, store_image: e.target.value })}
                 />
 
+                <label>Store Owner (User / Merchant):</label>
+                <select
+                  className="input"
+                  value={storeForm.user_id || ''}
+                  onChange={e => setStoreForm({ ...storeForm, user_id: e.target.value })}
+                >
+                  <option value="">-- Select merchant user --</option>
+                  {users
+                    .filter(u => u.role === 'merchant')       // only merchants
+                    .map(u => (
+                      <option key={u.user_id} value={u.user_id}>
+                        {u.user_id} - {u.username}
+                      </option>
+                    ))}
+                </select>
+
                 <div style={{ marginTop: '1rem' }}>
                   <button className="button" onClick={handleSaveStore}>Save</button>
                   <button className="button button-danger" style={{ marginLeft: '8px' }} onClick={handleDeleteStore}>Delete Store</button>
@@ -572,6 +783,20 @@ export default function AdminPage() {
                   value={storeForm.store_image}
                   onChange={(e) => setStoreForm({ ...storeForm, store_image: e.target.value })}
                 />
+                <select
+                  className="input"
+                  value={storeForm.user_id || ''}
+                  onChange={e => setStoreForm({ ...storeForm, user_id: e.target.value })}
+                >
+                  <option value="">-- Select merchant user --</option>
+                  {users
+                    .filter(u => u.role === 'merchant')
+                    .map(u => (
+                      <option key={u.user_id} value={u.user_id}>
+                        {u.user_id} - {u.username}
+                      </option>
+                    ))}
+                </select>
 
                 <div style={{ marginTop: '1rem' }}>
                   <button className="button" onClick={async () => {
@@ -643,11 +868,11 @@ export default function AdminPage() {
       )}
 
       {view === 'orders' && (
-        <div>
+        <div style={{ paddingTop: '10px' }}>
           <h2>All Orders</h2>
           {orders.map(order => (
-            <div key={order.order_id} className="card" style={{ marginBottom: '1rem' }}>
-              <div>
+            <div key={order.order_id} className="card" style={{ marginBottom: '1rem', paddingTop: '10px' }}>
+              <div style={{ marginTop: '2px' }}>
                 <b>Order #{order.order_id}</b> (User: {order.user_id})
                 <button className="button" style={{ marginLeft: '8px' }} onClick={() => toggleExpandOrder(order.order_id)}>
                   {expandedOrders[order.order_id] ? 'Collapse' : 'Expand'}
@@ -704,22 +929,247 @@ export default function AdminPage() {
       {view === 'users' && (
         <div>
           <h2>All Users</h2>
-          {users.map(u => (
-            <div key={u.user_id} className="card" style={{ marginBottom: '1rem' }}>
-              <p>ID: {u.user_id}</p>
-              <p>Username: {u.username}</p>
-              <p>First name: {u.fname}</p>
-              <p>Last name: {u.lname}</p>
-              <p>E-mail: {u.email}</p>
-              <p>Phone: {u.user_phone}</p>
-              <p>Address: {u.user_address}</p>
-              <p>Type: {u.user_type}</p>
-              <p>Role: {u.role}</p>
-              {u.role !== 'admin' && (
-                <button className="button button-danger" onClick={() => handleDeleteUser(u.user_id, u.role)}>Delete</button>
-              )}
-            </div>
-          ))}
+
+          {/* CREATE NEW USER FORM */}
+          <div className="card" style={{ marginBottom: '1.5rem', padding: '1rem' }}>
+            <h3 style={{ marginTop: '5px' }}>Create New User</h3>
+            <form onSubmit={handleCreateUser}>
+              <div>
+                <label>Username: </label>
+                <input
+                  type="text"
+                  value={newUser.username}
+                  onChange={e => setNewUser({ ...newUser, username: e.target.value })}
+                  style={{ boxSizing: 'border-box' }}
+                  required
+                />
+              </div>
+              <div>
+                <label>First name: </label>
+                <input
+                  type="text"
+                  value={newUser.fname}
+                  onChange={e => setNewUser({ ...newUser, fname: e.target.value })}
+                  style={{ boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label>Last name: </label>
+                <input
+                  type="text"
+                  value={newUser.lname}
+                  onChange={e => setNewUser({ ...newUser, lname: e.target.value })}
+                  style={{ boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label>E-mail: </label>
+                <input
+                  type="email"
+                  value={newUser.email}
+                  onChange={e => setNewUser({ ...newUser, email: e.target.value })}
+                  style={{ boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label>Phone: </label>
+                <input
+                  type="text"
+                  value={newUser.user_phone}
+                  onChange={e => setNewUser({ ...newUser, user_phone: e.target.value })}
+                  style={{ boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label>Address: </label>
+                <input
+                  type="text"
+                  value={newUser.user_address}
+                  onChange={e => setNewUser({ ...newUser, user_address: e.target.value })}
+                  style={{ boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label>User Type: </label>
+                <select
+                  value={newUser.user_type}
+                  onChange={e => setNewUser({ ...newUser, user_type: e.target.value })}
+                >
+                  <option value="regular">Regular</option>
+                  <option value="vip">VIP</option>
+                </select>
+              </div>
+              <div>
+                <label>Role: </label>
+                <select
+                  value={newUser.role}
+                  onChange={e => setNewUser({ ...newUser, role: e.target.value })}
+                >
+                  <option value="user">User</option>
+                  <option value="merchant">Merchant</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div>
+                <label>Password: </label>
+                <input
+                  type="password"
+                  value={newUser.password}
+                  onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+                  style={{ boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <button className="button" type="submit" style={{ marginTop: '0.5rem' }}>
+                Create User
+              </button>
+            </form>
+          </div>
+
+          {/* USER LIST */}
+          {users.map(u => {
+            const isEditing = editingUserId === u.user_id;
+
+            return (
+              <div key={u.user_id} className="card" style={{ marginBottom: '1rem', padding: '1rem' }}>
+                {!isEditing ? (
+                  <>
+                    <p>ID: {u.user_id}</p>
+                    <p>Username: {u.username}</p>
+                    <p>First name: {u.fname}</p>
+                    <p>Last name: {u.lname}</p>
+                    <p>E-mail: {u.email}</p>
+                    <p>Phone: {u.user_phone}</p>
+                    <p>Address: {u.user_address}</p>
+                    <p>Type: {u.user_type}</p>
+                    <p>
+                      Role:{' '}
+                      <select
+                        value={u.role}
+                        onChange={e => handleChangeRole(u.user_id, e.target.value)}
+                      // disabled={u.role === 'admin'} // prevent changing other admins
+                      >
+                        <option value="user">User</option>
+                        <option value="merchant">Merchant</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </p>
+
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <button
+                        className="button"
+                        style={{ marginRight: '0.5rem' }}
+                        onClick={() => startEditUser(u)}
+                      >
+                        Edit
+                      </button>
+
+                      {u.role !== 'admin' && (
+                        <button
+                          className="button button-danger"
+                          onClick={() => handleDeleteUser(u.user_id, u.role)}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h4>Edit User #{u.user_id}</h4>
+                    <div>
+                      <label>Username: </label>
+                      <input
+                        type="text"
+                        value={editForm.username}
+                        onChange={e => setEditForm({ ...editForm, username: e.target.value })}
+                        style={{ boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label>First name: </label>
+                      <input
+                        type="text"
+                        value={editForm.fname}
+                        onChange={e => setEditForm({ ...editForm, fname: e.target.value })}
+                        style={{ boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label>Last name: </label>
+                      <input
+                        type="text"
+                        value={editForm.lname}
+                        onChange={e => setEditForm({ ...editForm, lname: e.target.value })}
+                        style={{ boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label>E-mail: </label>
+                      <input
+                        type="email"
+                        value={editForm.email}
+                        onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                        style={{ boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label>Phone: </label>
+                      <input
+                        type="text"
+                        value={editForm.user_phone}
+                        onChange={e => setEditForm({ ...editForm, user_phone: e.target.value })}
+                        style={{ boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label>Address: </label>
+                      <input
+                        type="text"
+                        value={editForm.user_address}
+                        onChange={e => setEditForm({ ...editForm, user_address: e.target.value })}
+                        style={{ boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label>User Type: </label>
+                      <select
+                        value={newUser.user_type}
+                        onChange={e => setNewUser({ ...newUser, user_type: e.target.value })}
+                      >
+                        <option value="regular">Regular</option>
+                        <option value="vip">VIP</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label>Role: </label>
+                      <select
+                        value={editForm.role}
+                        onChange={e => setEditForm({ ...editForm, role: e.target.value })}
+                      >
+                        <option value="user">User</option>
+                        <option value="merchant">Merchant</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <button
+                        className="button"
+                        style={{ marginRight: '0.5rem' }}
+                        onClick={() => handleSaveUser(u.user_id)}
+                      >
+                        Save
+                      </button>
+                      <button className="button button-secondary" onClick={cancelEditUser}>
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

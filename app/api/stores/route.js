@@ -5,25 +5,25 @@ const db = mysqlPool.promise();
 
 /*
 ตาราง stores:
-  store_id, store_name, store_phone, location, store_image, merchant_id
+  store_id, store_name, store_phone, location, store_image, user_id
 */
 
 //
-// ========== GET (รองรับ store_id + merchant_id) =========
+// ========== GET (รองรับ store_id + user_id) =========
 //
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
 
     const store_id = searchParams.get("store_id");
-    const merchant_id = searchParams.get("merchant_id");
+    const user_id = searchParams.get("user_id");
 
     let sql = "SELECT * FROM stores";
     const params = [];
 
-    if (merchant_id) {
-      sql += " WHERE merchant_id = ?";
-      params.push(merchant_id);
+    if (user_id) {
+      sql += " WHERE user_id = ?";
+      params.push(user_id);
     }
 
     if (store_id) {
@@ -44,7 +44,7 @@ export async function GET(request) {
 
 
 //
-// ========== POST (สร้างร้านใหม่, ผูก merchant_id) =========
+// ========== POST (สร้างร้านใหม่, ผูก user_id) =========
 //
 export async function POST(request) {
   try {
@@ -55,15 +55,15 @@ export async function POST(request) {
         store_phone,
         location,
         store_image,
-        merchant_id
+        user_id
       }
     */
-    const { store_name, store_phone, location, store_image, merchant_id } = body;
+    const { store_name, store_phone, location, store_image, user_id } = body;
 
     const [result] = await db.query(
-      `INSERT INTO stores (store_name, store_phone, location, store_image, merchant_id)
+      `INSERT INTO stores (store_name, store_phone, location, store_image, user_id)
        VALUES (?,?,?,?,?)`,
-      [store_name, store_phone, location, store_image, merchant_id ?? null]
+      [store_name, store_phone, location, store_image, user_id ?? null]
     );
 
     return NextResponse.json(
@@ -93,11 +93,11 @@ export async function PUT(request) {
         store_phone,
         location,
         store_image,
-        merchant_id   <-- ใส่มาด้วยถ้าจะอัปเดตว่าใครเป็นเจ้าของ
+        user_id  
       }
     */
 
-    const { store_id, store_name, store_phone, location, store_image, merchant_id } = body;
+    const { store_id, store_name, store_phone, location, store_image, user_id } = body;
 
     if (!store_id) {
       return NextResponse.json({ error: "store_id is required" }, { status: 400 });
@@ -105,14 +105,14 @@ export async function PUT(request) {
 
     await db.query(
       `UPDATE stores
-       SET store_name=?, store_phone=?, location=?, store_image=?, merchant_id=?
+       SET store_name=?, store_phone=?, location=?, store_image=?, user_id=?
        WHERE store_id=?`,
       [
         store_name,
         store_phone,
         location,
         store_image,
-        merchant_id ?? null,
+        user_id ?? null,
         store_id
       ]
     );
