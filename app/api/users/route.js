@@ -46,9 +46,10 @@ export async function POST(request) {
 export async function PUT(request) {
   try {
     const body = await request.json();
-    // รับ { user_id, ... }
+    // รับ { user_id, username, ... }
     const {
       user_id,
+      username,
       fname,
       email,
       lname,
@@ -64,16 +65,19 @@ export async function PUT(request) {
 
     await db.query(
       `UPDATE users
-       SET fname=?, lname=?, email=?, user_phone=?, user_address=?, user_type=?, role=?
+       SET username=?, fname=?, lname=?, email=?, user_phone=?, user_address=?, user_type=?, role=?
        WHERE user_id=?`,
-      [fname, lname, email, phone, address, user_type, role, user_id]
+      [username, fname, lname, email, phone, address, user_type, role, user_id]
     );
 
-    return NextResponse.json({ message: 'User updated' }, { status: 200 });
+    const [rows] = await db.query('SELECT * FROM users WHERE user_id=?', [user_id]);
+
+    return NextResponse.json(rows[0], { status: 200 });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update user: ' + error }, { status: 500 });
   }
 }
+
 
 export async function DELETE(request) {
   try {
