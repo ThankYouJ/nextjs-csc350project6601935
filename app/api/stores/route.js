@@ -15,10 +15,7 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const store_id = searchParams.get('store_id');
-    const user_id = searchParams.get('user_id'); // ✅ รับค่า user_id เพิ่ม
-
-    const store_id = searchParams.get("store_id");
-    const user_id = searchParams.get("user_id");
+    const user_id = searchParams.get('user_id'); 
 
     let sql = "SELECT * FROM stores";
     const params = [];
