@@ -27,7 +27,7 @@ export default function SignInPage() {
           router.push('/'); // กลับไปหน้าแรก
           setTimeout(() => {
             window.location.reload(); // รีเฟรชหน้าใหม่อีกรอบหลัง Sign-in
-          }, 100);
+          }, 250);
         } else {
           alert('Username/Email or Password incorrect'); // แจ้งเตือนหากข้อมูลไม่ตรง
         }
