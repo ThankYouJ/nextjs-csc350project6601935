@@ -78,7 +78,14 @@ export default function RootLayout({ children }) {
                   >
                     Orders
                   </Link>
-                  
+
+                  <Link
+                    href="/promotions"
+                    style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}
+                  >
+                    Coupons
+                  </Link>
+
                   <Link
                     href="/instruction"
                     style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}
@@ -88,38 +95,72 @@ export default function RootLayout({ children }) {
 
                   {user.role === 'admin' && (
                     <Link
-                    href="/admin"
-                    style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}
+                      href="/admin"
+                      style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}
                     >
                       Admin Panel
                     </Link>
                   )}
 
                   {user && user.role === "merchant" && (
-                    <Link href="/merchant" 
-                    style={{ textDecoration:'none', color:'#333', fontSize:'16px' }}>
+                    <Link href="/merchant"
+                      style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}>
                       Merchant Panel
                     </Link>
                   )}
 
-
+                  <ConnectWalletButton />
                   <Link
                     href="/profile"
-                    style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}
+                    style={{
+                      backgroundColor: '#007bff',
+                      textAlign: 'center',
+                      color: '#fff',
+                      fontWeight: '600',
+                      padding: '10px 18px',
+                      borderRadius: '12px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease',
+                      boxShadow: '0 2px 8px rgba(0, 123, 255, 0.3)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#0056b3';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 123, 255, 0.5)';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#007bff';
+                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 123, 255, 0.3)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
                   >
                     {user.fname || 'Profile'}
                   </Link>
-                  <ConnectWalletButton />
                   <button
                     className="button-danger"
                     onClick={handleSignOut}
                     style={{
+                      backgroundColor: 'red',
+                      textAlign: 'center',
                       color: '#fff',
+                      fontWeight: '600',
+                      padding: '12px 18px',
+                      borderRadius: '12px',
                       border: 'none',
-                      padding: '0.5rem 1rem',
-                      borderRadius: '6px',
                       cursor: 'pointer',
-                      fontSize: '16px',
+                      transition: 'all 0.3s ease',
+                      boxShadow: '0 4px 12px rgba(212, 68, 68, 0.5)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(224, 0, 0, 1)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(212, 68, 68, 0.5)';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'red';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(212, 68, 68, 0.5)';
+                      e.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
                     Sign-out

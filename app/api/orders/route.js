@@ -37,29 +37,27 @@ export async function POST(request) {
     const body = await request.json();
     const {
       user_id,
-      store_id, // ✅ รับ store_id
+      store_id,
       delivery_fee = 0,
-      discount = 0,
+      discount = 0,                
       total_price = 0,
       status = 'Pending',
-      order_items = []
+      order_items = [],
+      coupon_user_promotion_id = null,
+      coupon_discount = 0
     } = body;
 
     let billCode = '';
     let isUnique = false;
-    let maxRetries = 10; 
+    let maxRetries = 10;
 
     while (!isUnique && maxRetries > 0) {
       billCode = generateBillCode();
-      try {
-        const [existing] = await db.query('SELECT order_id FROM orders WHERE bill_code = ?', [billCode]);
-        if (existing.length === 0) {
-          isUnique = true;
-        }
-      } catch (err) {
-        console.error("Check BillCode Error:", err.message);
-        throw new Error("Database error: Please check if 'bill_code' column exists and is VARCHAR type.");
-      }
+      const [existing] = await db.query(
+        'SELECT order_id FROM orders WHERE bill_code = ?',
+        [billCode]
+      );
+      if (existing.length === 0) isUnique = true;
       maxRetries--;
     }
 
@@ -67,35 +65,66 @@ export async function POST(request) {
       throw new Error("Failed to generate unique bill code");
     }
 
-    // ✅ เพิ่ม store_id ลงในคำสั่ง INSERT
+    // INSERT ORDER with coupon fields
     const [resOrder] = await db.query(
       `INSERT INTO orders
-       (user_id, store_id, delivery_fee, discount, total_price, status, order_time, bill_code)
-       VALUES (?,?,?,?,?,?,NOW(),?)`,
-      [user_id, store_id, delivery_fee, discount, total_price, status, billCode]
+       (user_id, store_id, delivery_fee, discount, total_price, status, 
+        order_time, bill_code, coupon_user_promotion_id, coupon_discount)
+       VALUES (?,?,?,?,?,?,NOW(),?,?,?)`,
+      [
+        user_id,
+        store_id,
+        delivery_fee,
+        discount,
+        total_price,
+        status,
+        billCode,
+        coupon_user_promotion_id,
+        coupon_discount
+      ]
     );
-    
+
     const newOrderId = resOrder.insertId;
 
+    // INSERT ORDER ITEMS
     if (order_items.length > 0) {
-        const itemValues = order_items.map(it => [newOrderId, it.item_id, it.quantity, it.item_price]);
-        await db.query(
-            `INSERT INTO order_items (order_id, item_id, quantity, item_price) VALUES ?`,
-            [itemValues]
-        );
+      const itemValues = order_items.map(it => [
+        newOrderId,
+        it.item_id,
+        it.quantity,
+        it.item_price
+      ]);
+      await db.query(
+        `INSERT INTO order_items 
+         (order_id, item_id, quantity, item_price) VALUES ?`,
+        [itemValues]
+      );
     }
 
-    return NextResponse.json({ 
-        message: 'Order created', 
-        order_id: newOrderId, 
-        bill_code: billCode 
+    // MARK COUPON AS USED
+    if (coupon_user_promotion_id) {
+      await db.query(
+        `UPDATE user_promotions 
+         SET status = 'used'
+         WHERE id = ? AND status = 'unused'`,
+        [coupon_user_promotion_id]
+      );
+    }
+
+    return NextResponse.json({
+      message: 'Order created',
+      order_id: newOrderId,
+      bill_code: billCode
     }, { status: 201 });
 
   } catch (error) {
     console.error("Create Order Error:", error);
-    return NextResponse.json({ error: 'Failed to create order: ' + error.message }, { status: 500 });
+    return NextResponse.json({
+      error: 'Failed to create order: ' + error.message
+    }, { status: 500 });
   }
 }
+
 
 export async function PUT(request) {
   try {
