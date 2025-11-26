@@ -9,6 +9,7 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState([]); // เก็บข้อมูลออเดอร์
   const [orderItems, setOrderItems] = useState({}); // เก็บข้อมูลเมนูแต่ละ order
   const [expandedOrders, setExpandedOrders] = useState({});
+  const [promotions, setPromotions] = useState({}); // เก็บข้อมูล promotions โดยใช้ promotion_id เป็น key
 
   useEffect(() => {
     // โหลดข้อมูล user และออเดอร์ของ user
@@ -20,10 +21,25 @@ export default function OrdersPage() {
     const u = JSON.parse(stored);
     setUser(u);
 
+    // โหลด orders
     fetch(`/api/orders?user_id=${u.user_id}`)
       .then(res => res.json())
       .then(data => {
         if (!data.error) setOrders(data);
+      });
+
+    // โหลด promotions
+    fetch(`/api/promotions`)
+      .then(res => res.json())
+      .then(data => {
+        if (!data.error && Array.isArray(data)) {
+          // แปลง array เป็น object โดยใช้ promotion_id เป็น key
+          const promoMap = {};
+          data.forEach(promo => {
+            promoMap[promo.promotion_id] = promo;
+          });
+          setPromotions(promoMap);
+        }
       });
   }, []);
 
@@ -109,13 +125,8 @@ export default function OrdersPage() {
                 </div>
               </div>
 
-              <div style={{ marginTop: '8px' }}>
-                <div>Status: {order.status}</div>
-                <div>Total: {order.total_price}</div>
-                <div>Delivery Fee: {order.delivery_fee}</div>
-                <div>Discount: {order.discount}</div>
+              <div style={{ marginTop: '10px' }}>
                 <div>
-                  {/* แปลงเวลาเป็น format ไทย */}
                   Order time: {new Date(order.order_time).toLocaleString('th-TH', {
                     year: 'numeric',
                     month: '2-digit',
@@ -124,6 +135,17 @@ export default function OrdersPage() {
                     minute: '2-digit'
                   })}
                 </div>
+                <div style={{margin: '5px'}}>Status: {order.status}</div>
+                <div style={{margin: '5px'}}>Delivery Fee: {order.delivery_fee} บาท</div>
+                <hr></hr>
+                {order.coupon_user_promotion_id && promotions[order.coupon_user_promotion_id] && (
+                  <div style={{ marginTop: '4px', fontWeight: 'bold', color: '#2563eb', marginBottom: '4px' }}>
+                    Promotion: {promotions[order.coupon_user_promotion_id].title}
+                  </div>
+                )}
+                <div>Coupon discount: {order.coupon_discount} บาท</div>
+                <div>Total Discount: {order.discount} บาท</div>
+                <div>Total price: {order.total_price} บาท</div>
               </div>
 
               {/* แสดงเมนูของ order นั้นถ้าขยายอยู่ */}
