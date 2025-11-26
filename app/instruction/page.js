@@ -31,7 +31,7 @@ export default function WalletInstruction() {
             return;
         }
 
-        // ✅ extra safety: check address is set
+        // Check address is set
         if (!TOKEN_CONFIG.address || !TOKEN_CONFIG.address.startsWith('0x')) {
             console.error('Invalid token address in TOKEN_CONFIG:', TOKEN_CONFIG.address);
             alert('Token address ยังไม่ถูกตั้งค่า กรุณาตรวจสอบไฟล์ contractConfig.js');
