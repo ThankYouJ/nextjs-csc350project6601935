@@ -14,26 +14,51 @@ export default function MerchantPage() {
   const [menus, setMenus] = useState([]);
   const [showWalletModal, setShowWalletModal] = useState(false);
 
-  // Form & View State
+  // Menu
   const [menuForm, setMenuForm] = useState({ item_name: '', item_price: 0, available: 1, description: '', item_image: '' });
   const [editingItem, setEditingItem] = useState(null);
   const [showMenuModal, setShowMenuModal] = useState(false);
+
+  // View Tabs
   const [view, setView] = useState("menus");
+
+  // Orders
   const [orders, setOrders] = useState([]);
   const [orderItems, setOrderItems] = useState({});
   const [expandedOrders, setExpandedOrders] = useState({});
 
-  // Wallet State
+  // Wallet
   const { address, isConnected } = useWallet();
   const [savingWallet, setSavingWallet] = useState(false);
   const [currentWalletAddress, setCurrentWalletAddress] = useState("");
 
-  // Cash Out State
+  // Cash Out
   const [cashOutAmount, setCashOutAmount] = useState('');
   const [burning, setBurning] = useState(false);
-  const [tokenBalance, setTokenBalance] = useState('0'); // ✅ เพิ่ม State เก็บยอดเงิน
+  const [tokenBalance, setTokenBalance] = useState('0');
 
-  // --- Helper: Upload Image ---
+  // PROMOTIONS
+const [promotions, setPromotions] = useState([]);
+const [showPromoModal, setShowPromoModal] = useState(false);
+const [editingPromo, setEditingPromo] = useState(null);
+
+
+const [promoForm, setPromoForm] = useState({
+  title: "",
+  description: "",
+  token_cost: 0,
+  image_url: "",
+  discount_type: "PERCENT",
+  discount_value: 0,
+  max_discount: 0,
+  applies_to: "ORDER",
+  item_id: null,
+  min_order_amount: 0,
+  is_active: 1,
+});
+
+
+  // Upload image
   async function uploadToImgBB(file) {
     try {
       const apiKey = process.env.NEXT_PUBLIC_IMGBB_KEY;
@@ -46,7 +71,7 @@ export default function MerchantPage() {
     } catch (err) { return null; }
   }
 
-  // --- Initial Load ---
+  // Initial Load
   useEffect(() => {
     const stored = localStorage.getItem('user');
     if (!stored) { window.location.href = "/"; return; }
@@ -66,14 +91,18 @@ export default function MerchantPage() {
 
         fetch(`/api/menu_items?store_id=${myStore.store_id}`).then(r => r.json()).then(m => setMenus(m));
         fetch(`/api/orders?store_id=${myStore.store_id}`).then(r => r.json()).then(o => setOrders(o || []));
+        fetch(`/api/promotions?store_id=${myStore.store_id}`)
+          .then(r => r.json())
+          .then(p => {
+            setPromotions(Array.isArray(p) ? p : []);
+          });
+
       });
   }, []);
 
-  // --- ✅ Fetch Balance เมื่อ Wallet เชื่อมต่อ ---
+  // Wallet balance
   useEffect(() => {
-    if (isConnected && address) {
-        fetchTokenBalance(address);
-    }
+    if (isConnected && address) fetchTokenBalance(address);
   }, [isConnected, address]);
 
   const fetchTokenBalance = async (walletAddr) => {
@@ -82,18 +111,15 @@ export default function MerchantPage() {
         const provider = new ethers.BrowserProvider(window.ethereum);
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
         const balance = await contract.balanceOf(walletAddr);
-        setTokenBalance(ethers.formatEther(balance)); // แปลง Wei เป็น Ether (Token unit)
-    } catch (err) {
-        console.error("Failed to fetch balance:", err);
-    }
+        setTokenBalance(ethers.formatEther(balance));
+    } catch (err) { console.error(err); }
   };
 
-  // --- Cash Out Function ---
+  // Cash out
   const handleCashOut = async () => {
     if (!cashOutAmount || parseFloat(cashOutAmount) <= 0) return alert("กรุณากรอกจำนวน Token ที่ถูกต้อง");
     if (!window.ethereum) return alert("กรุณาติดตั้ง MetaMask");
-    
-    if(!confirm(`คุณต้องการแลก ${cashOutAmount} Tokens เป็นเงิน ${cashOutAmount} บาท ใช่หรือไม่?`)) return;
+    if(!confirm(`ต้องการแลก ${cashOutAmount} Tokens เป็นเงิน ${cashOutAmount} บาท ?`)) return;
 
     setBurning(true);
     try {
@@ -105,19 +131,15 @@ export default function MerchantPage() {
         const tx = await contract.redeem(amountWei);
         await tx.wait();
 
-        alert(`✅ ทำรายการสำเร็จ!\nได้รับเงิน: ${cashOutAmount} บาท`);
+        alert(`รับเงินแล้ว: ${cashOutAmount} บาท`);
         setCashOutAmount('');
-        fetchTokenBalance(address); // อัปเดตยอดเงินหลัง Burn
-
+        fetchTokenBalance(address);
     } catch (err) {
-        console.error(err);
         alert("เกิดข้อผิดพลาด: " + (err.reason || err.message));
-    } finally {
-        setBurning(false);
-    }
+    } finally { setBurning(false); }
   };
 
-  // --- Save Wallet Address ---
+  // Save wallet address
   const saveWalletAddress = async () => {
     if (!isConnected || !address) return alert("กรุณา Connect Wallet ก่อน");
     setSavingWallet(true);
@@ -127,52 +149,163 @@ export default function MerchantPage() {
       body: JSON.stringify({ store_id: store.store_id, merchantAddress: address }),
     });
     setSavingWallet(false);
-    if (res.ok) { alert("บันทึก Address สำเร็จ"); setCurrentWalletAddress(address); } 
-    else { alert("บันทึกไม่สำเร็จ"); }
+    if (res.ok) { alert("บันทึกสำเร็จ"); setCurrentWalletAddress(address); }
   };
 
-  // ... (Modal Functions เดิม) ...
-  const openNewMenuModal = () => { setEditingItem(null); setMenuForm({ item_name: '', item_price: 0, available: 1, description: '', item_image: '' }); setShowMenuModal(true); };
-  const openEditMenuModal = (item) => { setEditingItem(item); setMenuForm({ ...item }); setShowMenuModal(true); };
+  // Menu modal
+  const openNewMenuModal = () => {
+    setEditingItem(null);
+    setMenuForm({ item_name: '', item_price: 0, available: 1, description: '', item_image: '' });
+    setShowMenuModal(true);
+  };
+
+  const openEditMenuModal = (item) => {
+    setEditingItem(item);
+    setMenuForm({ ...item });
+    setShowMenuModal(true);
+  };
+
   const saveMenu = async () => {
     const method = editingItem ? "PUT" : "POST";
     const payload = { ...menuForm, item_price: Number(menuForm.item_price), store_id: store.store_id };
     if (editingItem) payload.item_id = editingItem.item_id;
-    try {
-      const res = await fetch("/api/menu_items", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      const data = await res.json();
-      if (!data.error) { alert(editingItem ? "แก้ไขเมนูสำเร็จ" : "เพิ่มเมนูสำเร็จ"); window.location.reload(); } else { alert(data.error); }
-    } catch (err) { console.error(err); }
+
+    const res = await fetch("/api/menu_items", {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (!data.error) { alert("บันทึกสำเร็จ"); window.location.reload(); }
   };
+
   const deleteMenu = async () => {
-    if (!editingItem || !confirm("ต้องการลบเมนูนี้หรือไม่?")) return;
-    await fetch(`/api/menu_items?item_id=${editingItem.item_id}`, { method: "DELETE" });
-    alert("ลบเมนูสำเร็จ"); window.location.reload();
+    if (!editingItem || !confirm("ลบเมนูนี้?")) return;
+    await fetch(`/api/menu_items?item_id=${editingItem.item_id}`, { method:"DELETE" });
+    alert("ลบแล้ว"); window.location.reload();
   };
+
+  // Orders
   const toggleExpandOrder = async (order_id) => {
-    if (expandedOrders[order_id]) { setExpandedOrders(prev => ({ ...prev, [order_id]: false })); } 
+    if (expandedOrders[order_id]) {
+      setExpandedOrders(prev => ({ ...prev, [order_id]: false }));
+    } 
     else {
-      const res = await fetch(`/api/order_items?order_id=${order_id}`);
-      const data = await res.json();
+      const data = await fetch(`/api/order_items?order_id=${order_id}`).then(r=>r.json());
       setOrderItems(prev => ({ ...prev, [order_id]: data }));
       setExpandedOrders(prev => ({ ...prev, [order_id]: true }));
     }
   };
+
   const handleChangeOrderStatus = async (order_id, newStatus) => {
-    try {
-      await fetch("/api/orders", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ order_id, status: newStatus }) });
-      setOrders(prev => prev.map(o => o.order_id === order_id ? { ...o, status: newStatus } : o));
-      alert("อัปเดตสถานะสำเร็จ");
-    } catch (err) { console.error(err); alert("เกิดข้อผิดพลาด"); }
+    await fetch("/api/orders", {
+      method:"PUT",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ order_id, status:newStatus })
+    });
+
+    setOrders(prev =>
+      prev.map(o => o.order_id === order_id ? { ...o, status:newStatus } : o)
+    );
+  };
+  // ----- Promotions: CRUD on frontend -----
+  const openNewPromoModal = () => {
+    setEditingPromo(null);
+    setPromoForm({
+      title: "",
+      description: "",
+      token_cost: 0,
+      image_url: "/mnt/data/2dd478e3-ddd2-464f-aa83-8952402b1a72.png", // default example image
+      discount_type: "PERCENT",
+      discount_value: 0,
+      max_discount: 0,
+      applies_to: "ORDER",
+      item_id: null,
+      min_order_amount: 0,
+    });
+    setShowPromoModal(true);
   };
 
+  const savePromotion = async () => {
+  if (!promoForm.title) return alert("กรุณากรอกชื่อโปรโมชัน");
+
+  try {
+    const method = editingPromo ? "PUT" : "POST";
+    const url = editingPromo
+      ? `/api/promotions/${editingPromo.promotion_id}`
+      : `/api/promotions`;
+
+    // don't override store_id on update
+    const body = {
+      ...promoForm,
+      item_id: promoForm.applies_to === "ITEM" ? promoForm.item_id : null,
+    };
+
+    if (!editingPromo) {
+      if (!store || !store.store_id) {
+        return alert("Store ยังไม่โหลด");
+      }
+      body.store_id = store.store_id;
+    }
+
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      return alert("บันทึกไม่สำเร็จ: " + (j.error || j.message || res.status));
+    }
+
+    alert(editingPromo ? "แก้ไขโปรสำเร็จ" : "เพิ่มโปรสำเร็จ");
+    setShowPromoModal(false);
+
+    // refresh
+    const p = await fetch(`/api/promotions?store_id=${store.store_id}`).then(r => r.json());
+    setPromotions(p || []);
+
+  } catch (err) {
+    console.error(err);
+    alert("เกิดข้อผิดพลาด");
+  }
+};
+
+  const deletePromotion = async (promotion_id) => {
+    if (!confirm("ต้องการลบโปรนี้หรือไม่?")) return;
+    try {
+      const res = await fetch(`/api/promotions/${promotion_id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const j = await res.json().catch(()=>({}));
+        return alert("ลบไม่สำเร็จ: " + (j.error || res.status));
+      }
+      setPromotions(prev => prev.filter(p => p.promotion_id !== promotion_id));
+      alert("ลบโปรสำเร็จ");
+    } catch (err) {
+      console.error(err);
+      alert("เกิดข้อผิดพลาด");
+    }
+  };
+
+
+  // helper: upload image for promo (calls existing uploadToImgBB)
+  const handlePromoImageUpload = async (file) => {
+    const url = await uploadToImgBB(file);
+    if (url) setPromoForm(prev => ({ ...prev, image_url: url }));
+  };
+
+  // -----------------------
+  // Render
+  // -----------------------
   if (!user || !store) return <div className="container" style={{textAlign:'center', padding:'50px'}}>Loading...</div>;
 
   return (
     <div className="container">
       <h1>Merchant Panel</h1>
-      
-      {/* Header */}
+
+      {/* Header card */}
       <div className="card" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '15px', padding: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
           {store.store_image && <img src={store.store_image} style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover' }} />}
@@ -184,7 +317,7 @@ export default function MerchantPage() {
         <button className="button" style={{ backgroundColor: '#4A56E2', color: 'white' }} onClick={() => setShowWalletModal(true)}>ตั้งค่า Wallet</button>
       </div>
 
-      {/* ✅ 2. ส่วน Cash Out พร้อมแสดง Balance */}
+      {/* Cash Out card */}
       <div className="card" style={{ marginBottom: '1rem', backgroundColor: '#e3f2fd', border: '1px solid #90caf9' }}>
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px'}}>
             <h3 style={{ margin: 0, color: '#0d47a1' }}>💰 Cash Out (แลกเหรียญเป็นเงิน)</h3>
@@ -192,7 +325,6 @@ export default function MerchantPage() {
                 Balance: {parseFloat(tokenBalance).toFixed(2)} RSU
             </div>
         </div>
-        
         <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
             <div style={{ flex: 1 }}>
                 <label style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>จำนวน Token:</label>
@@ -228,6 +360,7 @@ export default function MerchantPage() {
       <div className="flex" style={{ margin: "1rem 0", gap: '10px' }}>
         <button className="button" onClick={() => setView("menus")} style={{ backgroundColor: view === 'menus' ? '#0070f3' : '#ccc' }}>จัดการเมนู</button>
         <button className="button" onClick={() => setView("orders")} style={{ backgroundColor: view === 'orders' ? '#0070f3' : '#ccc' }}>รายการออเดอร์</button>
+        <button className="button" onClick={() => setView("promotions")} style={{ backgroundColor: view === 'promotions' ? '#0070f3' : '#ccc' }}>โปรโมชัน</button>
       </div>
 
       {/* Menus View */}
@@ -289,6 +422,71 @@ export default function MerchantPage() {
         </div>
       )}
 
+      {/* Promotions View */}
+      {view === "promotions" && (
+        <div>
+          <div style={{ marginBottom: 12 }}>
+            <button className="button" style={{ backgroundColor: '#4A56E2' }} onClick={openNewPromoModal}>
+              + เพิ่มโปรโมชัน
+            </button>
+          </div>
+
+          <div className="flex" style={{ flexWrap: "wrap" }}>
+            {promotions.length === 0 && <p>ยังไม่มีโปรโมชั่น</p>}
+
+            {Array.isArray(promotions) && promotions.map(p => {
+              const isGlobal = p.store_id === null;
+
+              return (
+                <div key={p.promotion_id} className="card" style={{ width: 260, margin: 10, padding: 10, borderRadius: 8 }}>
+                  
+                  <img 
+                    src={p.image_url || "/mnt/data/2dd478e3-ddd2-464f-aa83-8952402b1a72.png"} 
+                    style={{ width: "100%", height: 140, objectFit: "cover", borderRadius: 6 }} 
+                  />
+
+                  <h4 style={{ marginTop: 10 }}>{p.title}</h4>
+                  <p style={{ fontSize: '0.85rem', color: '#666' }}>{p.description}</p>
+                  <p><b>Token:</b> {p.token_cost}</p>
+                  <p style={{ fontSize: '0.85rem' }}>
+                    <b>Type:</b> {p.discount_type} {p.discount_type === "PERCENT" ? `(${p.discount_value}%)` : `(${p.discount_value})`}
+                  </p>
+
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    {/* ปุ่มแก้ไข */}
+                    <button 
+                      className="button" 
+                      disabled={isGlobal}
+                      style={{ flex: 1, opacity: isGlobal ? 0.5 : 1 }}
+                      onClick={() => {
+                        if (isGlobal) return;
+                        setEditingPromo(p);
+                        setPromoForm({ ...p });
+                        setShowPromoModal(true);
+                      }}
+                    >
+                      แก้ไข
+                    </button>
+
+                    {/* ปุ่มลบ */}
+                    <button 
+                      className="button button-danger"
+                      disabled={isGlobal}
+                      style={{ flex: 1, opacity: isGlobal ? 0.5 : 1 }}
+                      onClick={() => {
+                        if (!isGlobal) deletePromotion(p.promotion_id);
+                      }}
+                    >
+                      ลบ
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Wallet Modal */}
       {showWalletModal && (
         <div className="modal-background" style={{ zIndex: 9999 }} onClick={(e) => e.target === e.currentTarget && setShowWalletModal(false)}>
@@ -300,7 +498,7 @@ export default function MerchantPage() {
             {isConnected && currentWalletAddress !== address && (
               <>
                 <p style={{ color: '#d97706', marginTop: 10 }}>⚠ Wallet เปลี่ยนไป กรุณากดบันทึก</p>
-                <button className="button" onClick={saveWalletAddress} style={{ backgroundColor: '#28a745', marginTop: 10 }}>Save Wallet Address</button>
+                <button className="button" onClick={saveWalletAddress} style={{ backgroundColor: '#28a745', marginTop: 10 }}>{savingWallet ? "Saving..." : "Save Wallet Address"}</button>
               </>
             )}
             {isConnected && currentWalletAddress === address && currentWalletAddress && <p style={{ color: '#16a34a', marginTop: 10 }}>✔ Address ในระบบอัปเดตแล้ว</p>}
@@ -308,8 +506,7 @@ export default function MerchantPage() {
                   if (!confirm("ต้องการลบ Address นี้หรือไม่?")) return;
                   const res = await fetch(`/api/stores/wallet?store_id=${store.store_id}`, { method: 'DELETE' });
                   if (res.ok) { alert("ลบ Address เรียบร้อย"); setCurrentWalletAddress(""); } else { alert("ลบไม่สำเร็จ"); }
-                }} style={{ marginTop: 15 }}>Remove Address</button>
-            }
+                }} style={{ marginTop: 15 }}>Remove Address</button>}
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
               <button className="button" style={{ backgroundColor: '#6c757d' }} onClick={() => setShowWalletModal(false)}>ปิด</button>
             </div>
@@ -340,6 +537,74 @@ export default function MerchantPage() {
           </div>
         </div>
       )}
+
+      {/* Promotion Modal */}
+      {showPromoModal && (
+        <div className="modal-background" style={{ zIndex: 9999 }} onClick={(e) => e.target === e.currentTarget && setShowPromoModal(false)}>
+          <div className="modal-content" style={{ maxWidth: 600 }}>
+            <h3>{editingPromo ? "แก้ไขโปรโมชัน" : "เพิ่มโปรโมชันใหม่"}</h3>
+
+            <label>ชื่อโปร:</label>
+            <input className="input" value={promoForm.title} onChange={(e) => setPromoForm({ ...promoForm, title: e.target.value })} />
+
+            <label>รายละเอียด:</label>
+            <textarea className="input" value={promoForm.description} onChange={(e) => setPromoForm({ ...promoForm, description: e.target.value })} />
+
+            <label>Token ที่ใช้แลก:</label>
+            <input className="input" type="number" value={promoForm.token_cost} onChange={(e) => setPromoForm({ ...promoForm, token_cost: e.target.value })} />
+
+            <label>ประเภทส่วนลด:</label>
+            <select className="input" value={promoForm.discount_type} onChange={(e) => setPromoForm({ ...promoForm, discount_type: e.target.value })}>
+              <option value="PERCENT">เปอร์เซ็นต์</option>
+              <option value="FIXED">จำนวนเงิน</option>
+            </select>
+
+            <label>จำนวนส่วนลด:</label>
+            <input className="input" type="number" value={promoForm.discount_value} onChange={(e) => setPromoForm({ ...promoForm, discount_value: e.target.value })} />
+
+            {promoForm.discount_type === "PERCENT" && (
+              <>
+                <label>ส่วนลดสูงสุด:</label>
+                <input className="input" type="number" value={promoForm.max_discount} onChange={(e) => setPromoForm({ ...promoForm, max_discount: e.target.value })} />
+              </>
+            )}
+
+            <label>ใช้กับ:</label>
+            <select className="input" value={promoForm.applies_to} onChange={(e) => setPromoForm({ ...promoForm, applies_to: e.target.value })}>
+              <option value="ORDER">ทั้งออเดอร์</option>
+              <option value="ITEM">เฉพาะสินค้า</option>
+            </select>
+
+            {promoForm.applies_to === "ITEM" && (
+              <>
+                <label>เลือกสินค้า:</label>
+                <select className="input" value={promoForm.item_id || ""} onChange={(e) => setPromoForm({ ...promoForm, item_id: e.target.value })}>
+                  <option value="">-- เลือกสินค้า --</option>
+                  {menus.map(m => <option key={m.item_id} value={m.item_id}>{m.item_name}</option>)}
+                </select>
+              </>
+            )}
+
+            <label>ยอดขั้นต่ำ:</label>
+            <input className="input" type="number" value={promoForm.min_order_amount} onChange={(e) => setPromoForm({ ...promoForm, min_order_amount: e.target.value })} />
+
+            <label>รูปโปรโมชัน (URL หรือ Upload):</label>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input className="input" value={promoForm.image_url} onChange={(e) => setPromoForm({ ...promoForm, image_url: e.target.value })} />
+              <input type="file" accept="image/*" onChange={async (e) => {
+                const file = e.target.files[0]; if (!file) return;
+                await handlePromoImageUpload(file);
+              }} />
+            </div>
+           
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+              <button className="button" onClick={savePromotion}>Save</button>
+              <button className="button" style={{ background: '#6c757d' }} onClick={() => setShowPromoModal(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
