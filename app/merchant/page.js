@@ -320,7 +320,7 @@ const [promoForm, setPromoForm] = useState({
       {/* Cash Out card */}
       <div className="card" style={{ marginBottom: '1rem', backgroundColor: '#e3f2fd', border: '1px solid #90caf9' }}>
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px'}}>
-            <h3 style={{ margin: 0, color: '#0d47a1' }}>💰 Cash Out (แลกเหรียญเป็นเงิน)</h3>
+            <h3 style={{ margin: 0, color: '#0d47a1' }}>Cash Out (แลกเหรียญเป็นเงิน)</h3>
             <div style={{fontSize:'0.9rem', color:'#0d47a1', fontWeight:'bold', background:'rgba(255,255,255,0.5)', padding:'4px 8px', borderRadius:'4px'}}>
                 Balance: {parseFloat(tokenBalance).toFixed(2)} RSU
             </div>
@@ -447,8 +447,8 @@ const [promoForm, setPromoForm] = useState({
 
                   <h4 style={{ marginTop: 10 }}>{p.title}</h4>
                   <p style={{ fontSize: '0.85rem', color: '#666' }}>{p.description}</p>
-                  <p><b>Token:</b> {p.token_cost}</p>
-                  <p style={{ fontSize: '0.85rem' }}>
+                  <p style={{ fontSize: '0.9rem' }}><b>Token:</b> {p.token_cost} RSU</p>
+                  <p style={{ fontSize: '0.9rem' }}>
                     <b>Type:</b> {p.discount_type} {p.discount_type === "PERCENT" ? `(${p.discount_value}%)` : `(${p.discount_value})`}
                   </p>
 
